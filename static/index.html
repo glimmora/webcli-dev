@@ -335,7 +335,7 @@
       </div>
       <div class="form-row">
         <label>params (json array)</label>
-        <input type="text" id="ct-call-params" placeholder='["oct...", 100]'>
+        <input type="text" id="ct-call-params" placeholder='["oct...", 100] use enc(N) for FHE'>
       </div>
       <div class="form-row">
         <label>amount (oct, optional)</label>
@@ -350,6 +350,29 @@
         <button class="action-btn" onclick="doContractView()">view (read-only)</button>
       </div>
       <div id="ct-call-result"></div>
+    </div>
+
+    <div class="section-title">HFHE (pvac) tools</div>
+    <div class="form-area">
+      <div class="form-row">
+        <label>encrypt integer to ciphertext</label>
+        <input type="text" id="fhe-enc-value" placeholder="integer value (e.g. 100)">
+      </div>
+      <div class="action-row">
+        <button class="action-btn" onclick="doFheEncrypt()">encrypt</button>
+      </div>
+      <div class="form-row" id="fhe-enc-result-row" style="display:none">
+        <label>ciphertext (base64) - click to select</label>
+        <textarea id="fhe-enc-output" class="code-editor" rows="3" readonly onclick="this.select()"></textarea>
+      </div>
+      <div class="form-row">
+        <label>decrypt ciphertext to integer</label>
+        <textarea id="fhe-dec-input" class="code-editor" rows="3" placeholder="paste base64 ciphertext..."></textarea>
+      </div>
+      <div class="action-row">
+        <button class="action-btn" onclick="doFheDecrypt()">decrypt</button>
+      </div>
+      <div id="fhe-result"></div>
     </div>
 
     <div class="section-title">contract info</div>

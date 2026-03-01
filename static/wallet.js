@@ -915,6 +915,32 @@ async function doContractCall() {
   }
 }
 
+async function expandEncParams(params_str) {
+  var re = /enc\((-?\d+)\)/g;
+  var match;
+  var replacements = [];
+  while ((match = re.exec(params_str)) !== null) {
+    replacements.push({start: match.index, end: match.index + match[0].length, value: parseInt(match[1])});
+  }
+  if (replacements.length === 0) return params_str;
+  for (var i = replacements.length - 1; i >= 0; i--) {
+    var r = replacements[i];
+    var res = await api('POST', '/fhe/encrypt', {value: r.value});
+    params_str = params_str.substring(0, r.start) + '"' + res.ciphertext + '"' + params_str.substring(r.end);
+  }
+  return params_str;
+}
+
+async function tryFheDecrypt(val) {
+  if (typeof val !== 'string' || val.length < 100) return null;
+  try {
+    var res = await api('POST', '/fhe/decrypt', {ciphertext: val});
+    return res.value;
+  } catch (e) {
+    return null;
+  }
+}
+
 async function doContractView() {
   clearResult('ct-call-result');
   var addr = $('ct-call-addr').value.trim();
@@ -922,22 +948,63 @@ async function doContractView() {
   if (!addr) { showResult('ct-call-result', false, 'contract address required'); return; }
   if (!method) { showResult('ct-call-result', false, 'method name required'); return; }
   var params_str = $('ct-call-params').value.trim() || '[]';
-  try { JSON.parse(params_str); } catch (e) {
-    showResult('ct-call-result', false, 'invalid json params');
-    return;
-  }
   try {
+    showResult('ct-call-result', true, '<span class="mono">processing...</span>');
+    params_str = await expandEncParams(params_str);
+    try { JSON.parse(params_str); } catch (e) {
+      showResult('ct-call-result', false, 'invalid json params');
+      return;
+    }
     var url = '/contract/view?address=' + encodeURIComponent(addr) +
       '&method=' + encodeURIComponent(method) +
       '&params=' + encodeURIComponent(params_str);
     var res = await api('GET', url);
     var val = res.result;
     if (val === null || val === undefined) val = 'null';
-    showResult('ct-call-result', true, 'result: <span class="mono">' + escapeHtml(String(val)) + '</span>');
+    var decrypted = await tryFheDecrypt(val);
+    if (decrypted !== null) {
+      showResult('ct-call-result', true,
+        'result (encrypted): <span class="mono">' + escapeHtml(String(val)).substring(0, 40) + '...</span>' +
+        '<br>decrypted: <span class="mono" style="color:#0f0;font-size:1.1em">' + decrypted + '</span>');
+    } else {
+      showResult('ct-call-result', true, 'result: <span class="mono">' + escapeHtml(String(val)) + '</span>');
+    }
   } catch (e) {
     showResult('ct-call-result', false, e.message);
   }
 }
+
+
+// 
+
+async function doFheEncrypt() {
+  clearResult('fhe-result');
+  var val = $('fhe-enc-value').value.trim();
+  if (val === '') { showResult('fhe-result', false, 'enter an integer value'); return; }
+  var num = parseInt(val);
+  if (isNaN(num)) { showResult('fhe-result', false, 'invalid integer'); return; }
+  try {
+    var res = await api('POST', '/fhe/encrypt', {value: num});
+    $('fhe-enc-output').value = res.ciphertext;
+    $('fhe-enc-result-row').style.display = '';
+    showResult('fhe-result', true, 'encrypted ' + num + ' (' + res.ciphertext.length + ' chars)');
+  } catch (e) {
+    showResult('fhe-result', false, e.message);
+  }
+}
+
+async function doFheDecrypt() {
+  clearResult('fhe-result');
+  var ct = $('fhe-dec-input').value.trim();
+  if (!ct) { showResult('fhe-result', false, 'paste a ciphertext'); return; }
+  try {
+    var res = await api('POST', '/fhe/decrypt', {ciphertext: ct});
+    showResult('fhe-result', true, 'decrypted value: <span class="mono">' + res.value + '</span>');
+  } catch (e) {
+    showResult('fhe-result', false, e.message);
+  }
+}
+///
 
 async function doContractInfo() {
   clearResult('ct-info-result');

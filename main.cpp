@@ -1325,6 +1325,74 @@ int main(int argc, char** argv) {
         res.set_content(r.result.dump(), "application/json");
     });
 
+    svr.Post("/api/fhe/encrypt", [](const httplib::Request& req, httplib::Response& res) {
+        WALLET_GUARD
+        if (!g_pvac_ok) {
+            res.status = 500;
+            res.set_content(err_json("pvac not available").dump(), "application/json");
+            return;
+        }
+        auto body = json::parse(req.body, nullptr, false);
+        if (body.is_discarded() || !body.contains("value")) {
+            res.status = 400;
+            res.set_content(err_json("missing value").dump(), "application/json");
+            return;
+        }
+        int64_t value = body["value"].get<int64_t>();
+        uint8_t seed[32];
+        octra::random_bytes(seed, 32);
+        pvac_cipher ct = g_pvac.encrypt(static_cast<uint64_t>(value), seed);
+        auto data = g_pvac.serialize_cipher(ct);
+        std::string b64 = octra::base64_encode(data.data(), data.size());
+        g_pvac.free_cipher(ct);
+        json result;
+        result["ciphertext"] = b64;
+        res.set_content(result.dump(), "application/json");
+    });
+
+    svr.Post("/api/fhe/decrypt", [](const httplib::Request& req, httplib::Response& res) {
+        WALLET_GUARD
+        if (!g_pvac_ok) {
+            res.status = 500;
+            res.set_content(err_json("pvac not available").dump(), "application/json");
+            return;
+        }
+        auto body = json::parse(req.body, nullptr, false);
+        if (body.is_discarded() || !body.contains("ciphertext")) {
+            res.status = 400;
+            res.set_content(err_json("missing ciphertext").dump(), "application/json");
+            return;
+        }
+        std::string b64 = body["ciphertext"].get<std::string>();
+        auto raw = octra::base64_decode(b64);
+        if (raw.empty()) {
+            res.status = 400;
+            res.set_content(err_json("invalid base64").dump(), "application/json");
+            return;
+        }
+        pvac_cipher ct = g_pvac.deserialize_cipher(raw.data(), raw.size());
+        if (!ct) {
+            res.status = 400;
+            res.set_content(err_json("invalid ciphertext").dump(), "application/json");
+            return;
+        }
+        uint64_t lo = 0, hi = 0;
+        g_pvac.decrypt_fp(ct, lo, hi);
+        g_pvac.free_cipher(ct);
+        int64_t val;
+        if (hi == 0) {
+            val = static_cast<int64_t>(lo);
+        } else {
+            __uint128_t p = (__uint128_t(1) << 127) - 1;
+            __uint128_t full = (__uint128_t(hi) << 64) | lo;
+            if (full > p / 2) val = -static_cast<int64_t>(p - full);
+            else val = static_cast<int64_t>(lo);
+        }
+        json result;
+        result["value"] = val;
+        res.set_content(result.dump(), "application/json");
+    });
+
     svr.Get("/api/contract/info", [](const httplib::Request& req, httplib::Response& res) {
         WALLET_GUARD
         std::string addr = req.get_param_value("address");
@@ -1382,6 +1450,7 @@ int main(int argc, char** argv) {
                 if (!sr.ok || !sr.result.contains("value") || sr.result["value"].is_null()) continue;
                 std::string sym = sr.result.value("value", "");
                 if (sym.empty() || sym == "0") continue;
+                if (sym.size() > 10) sym = sym.substr(0, 10);
                 auto br = g_rpc.contract_call_view(addr, "balance_of",
                     json::array({g_wallet.addr}), g_wallet.addr);
                 std::string bal = (br.ok && br.result.contains("result") && !br.result["result"].is_null())
@@ -1390,6 +1459,7 @@ int main(int argc, char** argv) {
                 auto nr = g_rpc.contract_storage(addr, "name");
                 std::string name = (nr.ok && nr.result.contains("value") && !nr.result["value"].is_null())
                     ? nr.result.value("value", "") : sym;
+                if (name.size() > 32) name = name.substr(0, 32);
                 auto tr = g_rpc.contract_storage(addr, "total_supply");
                 std::string supply = (tr.ok && tr.result.contains("value") && !tr.result["value"].is_null())
                     ? tr.result.value("value", "0") : "0";

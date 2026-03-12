@@ -290,8 +290,6 @@ td {
   vertical-align: top;
 }
 
-tr:hover { background: #E5E9EF; }
-
 .mono {
   font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
   font-size: 11px;
@@ -738,6 +736,59 @@ tr:hover { background: #E5E9EF; }
 #modal-result {
   margin-top: 10px;
 }
+.import-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #D0D7E2;
+}
+.import-tab {
+  padding: 6px 14px;
+  font-size: 11px;
+  color: #8C9DB6;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+.import-tab.active {
+  color: #2B3A52;
+  border-bottom-color: #3B567F;
+  font-weight: 600;
+}
+.import-tab:hover {
+  color: #2B3A52;
+}
+.mnemonic-warning {
+  background: #FFF3E0;
+  color: #E65100;
+  padding: 10px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  text-align: center;
+  letter-spacing: 0.3px;
+}
+.mnemonic-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  margin: 8px 0;
+}
+.mnemonic-word {
+  background: #F7F8FA;
+  border: 1px solid #D0D7E2;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: 'SF Mono', Consolas, monospace;
+  color: #2B3A52;
+  text-align: center;
+}
+.mnemonic-word .mw-num {
+  color: #8C9DB6;
+  font-size: 9px;
+  margin-right: 4px;
+}
 
 #modal-pin input,
 #modal-pin-setup input {
@@ -912,8 +963,8 @@ tr:hover { background: #E5E9EF; }
   justify-content: space-between;
   align-items: baseline;
 }
-.token-symbol { font-weight: bold; color: #3B567F; font-size: 12px; }
-.token-name { color: #8C9DB6; font-size: 11px; margin-left: 6px; }
+.token-symbol { font-weight: bold; color: #3B567F; font-size: 12px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: bottom; }
+.token-name { color: #8C9DB6; font-size: 11px; margin-left: 6px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: bottom; }
 .token-balance { font-weight: bold; font-size: 12px; }
 .token-zero { color: #8C9DB6; font-weight: normal; }
 

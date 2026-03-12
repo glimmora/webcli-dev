@@ -34,7 +34,7 @@ var _cachedBal = null;
 var _encryptedBalanceRaw = 0;
 var _unclaimedCount = 0;
 var _pendingClaimIds = {};
-var _explorerUrl = 'https://devnet.octrascan.io';
+var _explorerUrl = 'https://octrascan.io';
 var _tokens = [];
 var _selectedToken = null;
 var _tokenSymbols = {};
@@ -43,6 +43,15 @@ var _tokensLoaded = false;
 var _tokTxGen = 0;
 var _compiledAbi = null;
 var _fees = {};
+var _rpcHost = '';
+var _hasMasterSeed = false;
+
+function networkLabel(host) {
+  if (host === '46.101.86.250') return 'main net';
+  if (host === '165.227.225.79') return 'dev net';
+  if (host === 'localhost' || host === '127.0.0.1') return 'local';
+  return host;
+}
 
 
 
@@ -90,7 +99,7 @@ async function fetchBalance() {
     if ($('enc-enc-bal')) $('enc-enc-bal').textContent = fmtOct(enc);
     if ($('st-enc-bal-info')) $('st-enc-bal-info').textContent = fmtOct(enc);
     if ($('ct-bal')) $('ct-bal').textContent = fmtOct(pub);
-    $('hdr-status').textContent = 'online';
+    $('hdr-status').textContent = _rpcHost ? 'online | ' + networkLabel(_rpcHost) : 'online';
     $('hdr-status').className = 'right online';
     return bal;
   } catch (e) {
@@ -1329,7 +1338,8 @@ async function showKeys() {
     h += '<tr><td>address</td><td class="mono">' + (res.address || '') + '</td></tr>';
     h += '<tr><td>public key</td><td class="mono">' + (res.public_key || '') + '</td></tr>';
     h += '<tr><td>view pubkey</td><td class="mono">' + (res.view_pubkey || '-') + '</td></tr>';
-    h += '<tr><td>private key</td><td class="mono">' + (res.private_key || '') + '</td></tr>';
+    h += '<tr><td>private key</td><td id="privkey-cell" style="color:#8C9DB6;cursor:pointer" onclick="revealPrivateKeys()">****** (click to reveal)</td></tr>';
+    h += '<tr><td>seed phrase</td><td id="seed-cell" style="color:#8C9DB6' + (res.has_master_seed ? ';cursor:pointer" onclick="revealPrivateKeys()' : '') + '">' + (res.has_master_seed ? '****** (click to reveal)' : 'not set - imported via private key only') + '</td></tr>';
     h += '</table>';
     $('keys-table').innerHTML = h;
   } catch (e) {
@@ -1337,12 +1347,210 @@ async function showKeys() {
   }
 }
 
+async function revealPrivateKeys() {
+  var pin = await modalPrompt('reveal private keys', 'enter 6-digit PIN', { pin: true, btnText: 'reveal' });
+  if (!pin || !/^\d{6}$/.test(pin)) return;
+  try {
+    var res = await api('POST', '/keys/private', { pin: pin });
+    var pkCell = $('privkey-cell');
+    if (pkCell) {
+      pkCell.className = 'mono';
+      pkCell.style.color = '';
+      pkCell.style.cursor = '';
+      pkCell.onclick = null;
+      pkCell.textContent = res.private_key || '';
+    }
+    var seedCell = $('seed-cell');
+    if (seedCell && res.mnemonic) {
+      seedCell.className = 'mono';
+      seedCell.style.color = '';
+      seedCell.textContent = res.mnemonic;
+    } else if (seedCell) {
+      seedCell.textContent = 'not set - imported via private key only';
+    }
+  } catch (e) {
+    showResult('keys-table', false, e.message);
+  }
+}
+
 async function loadSettings() {
   try {
     var w = await api('GET', '/wallet');
-    $('settings-rpc').value = w.rpc_url || 'http://165.227.225.79:8080';
-    $('settings-explorer').value = w.explorer_url || 'https://devnet.octrascan.io';
+    $('settings-rpc').value = w.rpc_url || 'http://46.101.86.250:8080';
+    $('settings-explorer').value = w.explorer_url || 'https://octrascan.io';
   } catch (e) {}
+  loadAccountList();
+}
+
+async function loadAccountList() {
+  var el = $('wallet-list');
+  if (!el) return;
+  try {
+    var resp = await api('GET', '/wallet/accounts');
+    var accounts = resp.accounts || [];
+    if (accounts.length === 0) {
+      el.innerHTML = '<div class="staging-empty">no accounts</div>';
+      return;
+    }
+    var btnStyle = 'display:inline-block;width:80px;padding:8px;margin:0;background:#E5E9EF;border:none;border-top:1px solid #D0D7E2;border-bottom:1px solid #D0D7E2;margin-right:4px;color:#3B567F;font-family:Tahoma,arial,sans-serif;font-size:11px;font-weight:bold;letter-spacing:1px;cursor:pointer;text-align:center;text-transform:lowercase';
+    var btnHover = 'onmouseenter="this.style.background=\'#D0D7E2\'" onmouseleave="this.style.background=\'#E5E9EF\'"';
+    var html = '<table class="tx-table" style="width:100%"><tbody>';
+    for (var i = 0; i < accounts.length; i++) {
+      var a = accounts[i];
+      var badge = a.active ? '<span style="color:#4CAF50;margin-right:4px">●</span>' : '';
+      var hdTag = a.hd ? ' <span style="color:#8C9DB6;font-size:11px">[HD]</span>' : '';
+      var name = a.name || 'unnamed';
+      var escapedName = name.replace(/'/g, "\\'");
+      html += '<tr>';
+      html += '<td style="padding:6px 8px;vertical-align:middle">' + badge + '<b>' + name + '</b>' + hdTag + '</td>';
+      html += '<td class="mono" style="padding:6px 8px;font-size:11px;vertical-align:middle;word-break:break-all">' + a.addr + '</td>';
+      html += '<td style="padding:6px 4px;text-align:right;white-space:nowrap;vertical-align:middle">';
+      if (!a.active) {
+        html += '<button style="' + btnStyle + '" ' + btnHover + ' onclick="doSwitchAccount(\'' + a.addr + '\')">switch</button>';
+      }
+      html += '<button style="' + btnStyle + '" ' + btnHover + ' onclick="doRenameAccount(\'' + a.addr + '\',\'' + escapedName + '\')">rename</button>';
+      html += '</td></tr>';
+    }
+    html += '</tbody></table>';
+    el.innerHTML = html;
+    var actEl = $('wallet-actions');
+    if (actEl) {
+      var ah = '<div class="action-row" style="gap:6px;flex-wrap:wrap;align-items:center">';
+      if (resp.has_master_seed) {
+        var idx = resp.next_hd_index || 0;
+        ah += '<button class="action-btn" onclick="doDeriveAccount()">derive #' + idx + '</button>';
+        ah += '<span style="color:#8C9DB6;font-size:11px;margin:0 4px">or</span>';
+      }
+      ah += '<button class="action-btn" onclick="showImportAnother()">import another wallet</button>';
+      ah += '</div>';
+      actEl.innerHTML = ah;
+    }
+  } catch (e) {
+    el.innerHTML = '<div class="staging-empty">could not load accounts</div>';
+  }
+}
+
+var _modalPromptResolve = null;
+var _modalPromptBtnText = '';
+
+function modalPrompt(title, label, opts) {
+  opts = opts || {};
+  return new Promise(function(resolve) {
+    _modalPromptResolve = resolve;
+    _modalPromptBtnText = opts.btnText || 'ok';
+    hideAllModalPanels();
+    $('modal-sub').textContent = title;
+    $('modal-result').innerHTML = '';
+    if (opts.pin) {
+      $('modal-pin').style.display = 'block';
+      $('modal-pin-input').value = '';
+      $('pin-back-btn').style.display = '';
+      var unlockBtn = $('modal-pin').querySelector('.action-btn');
+      if (unlockBtn) unlockBtn.textContent = _modalPromptBtnText;
+      $('modal-pin-input').focus();
+      $('modal-overlay').style.display = 'flex';
+    } else {
+      var h = '<div class="form-row"><label>' + label + '</label>';
+      h += '<input type="text" id="modal-prompt-input"';
+      if (opts.placeholder) h += ' placeholder="' + opts.placeholder + '"';
+      h += ' autocomplete="off"></div>';
+      h += '<div class="action-row">';
+      h += '<button class="action-btn" id="modal-prompt-ok">ok</button>';
+      h += '<button class="action-btn" style="background:#8C9DB6" id="modal-prompt-cancel">cancel</button>';
+      h += '</div>';
+      $('modal-result').innerHTML = h;
+      $('modal-overlay').style.display = 'flex';
+      $('modal-prompt-input').focus();
+      $('modal-prompt-ok').onclick = function() {
+        var val = $('modal-prompt-input').value;
+        _modalPromptResolve = null;
+        $('modal-result').innerHTML = '';
+        $('modal-overlay').style.display = 'none';
+        resolve(val);
+      };
+      $('modal-prompt-cancel').onclick = function() {
+        _modalPromptResolve = null;
+        $('modal-result').innerHTML = '';
+        $('modal-overlay').style.display = 'none';
+        resolve(null);
+      };
+      $('modal-prompt-input').onkeydown = function(e) {
+        if (e.key === 'Enter') $('modal-prompt-ok').click();
+        if (e.key === 'Escape') $('modal-prompt-cancel').click();
+      };
+    }
+  });
+}
+
+async function doSwitchAccount(addr) {
+  var pin = await modalPrompt('switch account', 'enter 6-digit PIN', { pin: true, btnText: 'switch' });
+  if (!pin || !/^\d{6}$/.test(pin)) return;
+  clearResult('wallet-mgmt-result');
+  try {
+    await api('POST', '/wallet/switch', { addr: addr, pin: pin });
+    showResult('wallet-mgmt-result', true, 'switched account');
+    ['send-result','enc-result','dec-result','fhe-result','ct-compile-result','ct-deploy-result','ct-call-result','ct-info-result','ct-verify-result','tok-transfer-result','settings-result'].forEach(function(id) { clearResult(id); });
+    var sl = $('stealth-log'); if (sl) sl.remove();
+    var so = $('stealth-outputs'); if (so) so.innerHTML = '';
+    _pendingClaimIds = {};
+    _cachedBal = null;
+    _encryptedBalanceRaw = 0;
+    _unclaimedCount = 0;
+    _historyOffset = 0;
+    _tokens = [];
+    _tokensLoaded = false;
+    _fees = {};
+    await loadWalletInfo();
+    loadAccountList();
+    fetchBalance();
+    fetchFees();
+    switchView('dashboard');
+  } catch (e) {
+    showResult('wallet-mgmt-result', false, e.message);
+  }
+}
+
+async function doRenameAccount(addr, currentName) {
+  var name = await modalPrompt('rename account', 'new name', { placeholder: currentName || 'my wallet' });
+  if (!name || !name.trim()) return;
+  clearResult('wallet-mgmt-result');
+  try {
+    await api('POST', '/wallet/rename', { addr: addr, name: name.trim() });
+    showResult('wallet-mgmt-result', true, 'renamed');
+    loadAccountList();
+  } catch (e) {
+    showResult('wallet-mgmt-result', false, e.message);
+  }
+}
+
+async function doDeriveAccount() {
+  if (!_hasMasterSeed) return;
+  var pin = await modalPrompt('derive new address', 'enter 6-digit PIN', { pin: true });
+  if (!pin || !/^\d{6}$/.test(pin)) return;
+  var name = await modalPrompt('derive new address', 'name for new account (optional)', { placeholder: 'trading' });
+  if (name === null) return;
+  clearResult('wallet-mgmt-result');
+  try {
+    var resp = await api('POST', '/wallet/derive', { pin: pin, name: (name || '').trim() });
+    showResult('wallet-mgmt-result', true, 'derived: ' + (resp.address || '').substring(0, 16) + '...');
+    loadAccountList();
+  } catch (e) {
+    showResult('wallet-mgmt-result', false, e.message);
+  }
+}
+
+var _importFromSettings = false;
+
+function showImportAnother() {
+  _pendingAction = null;
+  _pendingPriv = '';
+  _pendingMnemonic = '';
+  _importFromSettings = true;
+  hideAllModalPanels();
+  $('modal-sub').textContent = 'import additional wallet';
+  $('modal-import').style.display = 'block';
+  switchImportTab('seed');
+  $('modal-overlay').style.display = 'flex';
 }
 
 async function doSaveSettings() {
@@ -1351,9 +1559,26 @@ async function doSaveSettings() {
   var explorer = $('settings-explorer').value.trim();
   if (!rpc) { showResult('settings-result', false, 'rpc url required'); return; }
   try {
-    await api('POST', '/settings', { rpc_url: rpc, explorer_url: explorer });
+    var resp = await api('POST', '/settings', { rpc_url: rpc, explorer_url: explorer });
     if (explorer) _explorerUrl = explorer.replace(/\/+$/, '');
-    showResult('settings-result', true, 'saved');
+    try { _rpcHost = new URL(rpc).hostname; } catch(e) { _rpcHost = rpc; }
+    if (resp && resp.cache_cleared) {
+      _cachedBal = null;
+      _historyOffset = 0;
+      _tokens = [];
+      _tokensLoaded = false;
+      _fees = {};
+      _encryptedBalanceRaw = 0;
+      _unclaimedCount = 0;
+      _tokenSymbols = {};
+      _tokenDecimals = {};
+      fetchBalance();
+      if (document.querySelector('.nav-tabs a.active[data-view="dashboard"]'))
+        loadDashboard();
+      showResult('settings-result', true, 'saved · cache cleared');
+    } else {
+      showResult('settings-result', true, 'saved');
+    }
   } catch (e) {
     showResult('settings-result', false, e.message);
   }
@@ -1381,19 +1606,24 @@ async function doChangePin() {
 
 var _pendingAction = null;
 var _pendingPriv = '';
+var _pendingMnemonic = '';
+var _importMode = 'seed';
 
 function hideAllModalPanels() {
   $('modal-btns').style.display = 'none';
   $('modal-import').style.display = 'none';
   $('modal-pin').style.display = 'none';
   $('modal-pin-setup').style.display = 'none';
+  $('modal-mnemonic-show').style.display = 'none';
   $('modal-result').innerHTML = '';
 }
 
-function showPinEntry() {
+function showPinEntry(showBack) {
   hideAllModalPanels();
   $('modal-pin').style.display = 'block';
   $('modal-pin-input').value = '';
+  var backBtn = $('pin-back-btn');
+  if (backBtn) backBtn.style.display = showBack ? '' : 'none';
   $('modal-pin-input').focus();
 }
 
@@ -1409,19 +1639,54 @@ function showPinSetup(action) {
 function modalShowImport() {
   hideAllModalPanels();
   $('modal-import').style.display = 'block';
+  switchImportTab('seed');
+}
+
+function switchImportTab(mode) {
+  _importMode = mode;
+  var tabs = document.querySelectorAll('.import-tab');
+  tabs.forEach(function(t) { t.classList.remove('active'); });
+  if (mode === 'seed') {
+    tabs[0].classList.add('active');
+    $('import-seed').style.display = 'block';
+    $('import-key').style.display = 'none';
+  } else {
+    tabs[1].classList.add('active');
+    $('import-seed').style.display = 'none';
+    $('import-key').style.display = 'block';
+  }
 }
 
 function modalBack() {
+  _selectedUnlockAddr = '';
+  _selectedUnlockFile = '';
   hideAllModalPanels();
-  $('modal-btns').style.display = 'flex';
+  if (_importFromSettings) {
+    _importFromSettings = false;
+    $('modal-overlay').style.display = 'none';
+    return;
+  }
+  init();
 }
 
 function modalBackFromPin() {
+  if (_modalPromptResolve) {
+    var cb = _modalPromptResolve;
+    _modalPromptResolve = null;
+    var unlockBtn = $('modal-pin').querySelector('.action-btn');
+    if (unlockBtn) unlockBtn.textContent = 'unlock';
+    hideAllModalPanels();
+    $('modal-overlay').style.display = 'none';
+    cb(null);
+    return;
+  }
   _pendingAction = null;
   _pendingPriv = '';
+  _pendingMnemonic = '';
+  _selectedUnlockAddr = '';
+  _selectedUnlockFile = '';
   hideAllModalPanels();
-  $('modal-btns').style.display = 'flex';
-  $('modal-sub').textContent = 'no wallet found';
+  init();
 }
 
 function modalCreate() {
@@ -1430,15 +1695,53 @@ function modalCreate() {
 }
 
 function modalDoImport() {
-  var priv = $('modal-privkey').value.trim();
-  if (!priv) {
-    $('modal-result').innerHTML = '<div class="result-msg result-error">private key required</div>';
-    return;
+  if (_importMode === 'seed') {
+    var mn = $('modal-mnemonic').value.trim().toLowerCase();
+    if (!mn) {
+      $('modal-result').innerHTML = '<div class="result-msg result-error">seed phrase required</div>';
+      return;
+    }
+    var words = mn.split(/\s+/);
+    if (words.length !== 12 && words.length !== 24) {
+      $('modal-result').innerHTML = '<div class="result-msg result-error">seed phrase must be 12 or 24 words</div>';
+      return;
+    }
+    _pendingMnemonic = words.join(' ');
+    _pendingPriv = '';
+    $('modal-mnemonic').value = '';
+  } else {
+    var priv = $('modal-privkey').value.trim();
+    if (!priv) {
+      $('modal-result').innerHTML = '<div class="result-msg result-error">private key required</div>';
+      return;
+    }
+    _pendingPriv = priv;
+    _pendingMnemonic = '';
+    $('modal-privkey').value = '';
   }
-  _pendingPriv = priv;
-  $('modal-privkey').value = '';
   showPinSetup('import');
   $('modal-sub').textContent = 'set a 6-digit PIN for your wallet';
+}
+
+function showMnemonicWords(mnemonic) {
+  var words = mnemonic.split(' ');
+  var html = '';
+  for (var i = 0; i < words.length; i++) {
+    html += '<div class="mnemonic-word"><span class="mw-num">' + (i+1) + '</span>' + words[i] + '</div>';
+  }
+  $('mnemonic-words').innerHTML = html;
+  $('mnemonic-confirm-check').checked = false;
+  $('mnemonic-continue-btn').disabled = true;
+  $('mnemonic-confirm-check').onchange = function() {
+    $('mnemonic-continue-btn').disabled = !this.checked;
+  };
+}
+
+function modalMnemonicDone() {
+  $('mnemonic-words').innerHTML = '';
+  $('modal-overlay').style.display = 'none';
+  loadWalletInfo();
+  startRefreshTimer();
 }
 
 async function modalUnlock() {
@@ -1447,9 +1750,24 @@ async function modalUnlock() {
     $('modal-result').innerHTML = '<div class="result-msg result-error">PIN must be exactly 6 digits</div>';
     return;
   }
+  if (_modalPromptResolve) {
+    var cb = _modalPromptResolve;
+    _modalPromptResolve = null;
+    var unlockBtn = $('modal-pin').querySelector('.action-btn');
+    if (unlockBtn) unlockBtn.textContent = 'unlock';
+    hideAllModalPanels();
+    $('modal-overlay').style.display = 'none';
+    cb(pin);
+    return;
+  }
   $('modal-result').innerHTML = '<div class="loading">unlocking...</div>';
   try {
-    await api('POST', '/wallet/unlock', { pin: pin });
+    var unlockBody = { pin: pin };
+    if (_selectedUnlockAddr) unlockBody.addr = _selectedUnlockAddr;
+    if (_selectedUnlockFile) unlockBody.file = _selectedUnlockFile;
+    await api('POST', '/wallet/unlock', unlockBody);
+    _selectedUnlockAddr = '';
+    _selectedUnlockFile = '';
     $('modal-overlay').style.display = 'none';
     await loadWalletInfo();
     startRefreshTimer();
@@ -1475,10 +1793,31 @@ async function modalFinishSetup() {
   $('modal-result').innerHTML = '<div class="loading">processing...</div>';
   try {
     if (_pendingAction === 'create') {
-      await api('POST', '/wallet/create', { pin: pin });
+      var resp = await api('POST', '/wallet/create', { pin: pin });
+      if (resp.mnemonic) {
+        hideAllModalPanels();
+        $('modal-sub').textContent = 'your seed phrase';
+        $('modal-mnemonic-show').style.display = 'block';
+        showMnemonicWords(resp.mnemonic);
+        return;
+      }
     } else if (_pendingAction === 'import') {
-      await api('POST', '/wallet/import', { priv: _pendingPriv, pin: pin });
-      _pendingPriv = '';
+      var importBody = { pin: pin };
+      if (_pendingMnemonic) {
+        importBody.mnemonic = _pendingMnemonic;
+        _pendingMnemonic = '';
+      } else {
+        importBody.priv = _pendingPriv;
+        _pendingPriv = '';
+      }
+      var resp = await api('POST', '/wallet/import', importBody);
+      if (resp.switched === false) {
+        /* imported as additional wallet — don't reload, just refresh list [lambda0xe] */
+        $('modal-overlay').style.display = 'none';
+        showResult('wallet-mgmt-result', true, 'imported: ' + (resp.address || '').substring(0, 16) + '...');
+        loadAccountList();
+        return;
+      }
     } else if (_pendingAction === 'migrate') {
       await api('POST', '/wallet/unlock', { pin: pin });
     }
@@ -1495,6 +1834,8 @@ async function loadWalletInfo() {
     var w = await api('GET', '/wallet');
     _walletAddr = w.address || w.addr || '';
     if (w.explorer_url) _explorerUrl = w.explorer_url.replace(/\/+$/, '');
+    if (w.rpc_url) try { _rpcHost = new URL(w.rpc_url).hostname; } catch(e) { _rpcHost = w.rpc_url; }
+    _hasMasterSeed = !!w.has_master_seed;
     $('hdr-addr').innerHTML = '<span class="mono">' + _walletAddr + '</span>';
     $('hdr-logout').style.display = '';
     $('hdr-dev').style.display = '';
@@ -1513,15 +1854,14 @@ async function doLogout() {
   _walletAddr = '';
   _cachedBal = null;
   _encryptedBalanceRaw = 0;
+  _hasMasterSeed = false;
   $('hdr-logout').style.display = 'none';
   $('hdr-dev').style.display = 'none';
   $('hdr-addr').textContent = 'locked';
   $('hdr-status').textContent = 'locked';
   $('hdr-status').className = 'right';
-  $('modal-sub').textContent = 'enter PIN to unlock';
-  hideAllModalPanels();
-  showPinEntry();
-  $('modal-overlay').style.display = 'flex';
+  switchView('dashboard');
+  init();
 }
 
 function startRefreshTimer() {
@@ -1537,6 +1877,53 @@ function startRefreshTimer() {
 }
 
 
+var _selectedUnlockAddr = '';
+var _selectedUnlockFile = '';
+
+function showAccountPicker(wallets) {
+  hideAllModalPanels();
+  $('modal-sub').textContent = 'select account';
+  var html = '<div style="margin:10px 0;max-height:300px;overflow-y:auto">';
+  for (var i = 0; i < wallets.length; i++) {
+    var a = wallets[i];
+    var hasAddr = a.addr && a.addr.length > 0;
+    var name = a.name || (hasAddr ? 'wallet' : a.file.replace('data/', ''));
+    var sub = hasAddr
+      ? a.addr.substring(0, 12) + '...' + a.addr.substring(a.addr.length - 6)
+      : a.file;
+    var hdTag = a.hd ? ' · hd' : '';
+    var dataAttr = hasAddr
+      ? 'data-addr="' + a.addr + '"'
+      : 'data-file="' + a.file + '"';
+    html += '<div class="account-card" ' + dataAttr + ' onclick="pickWallet(this)" style="cursor:pointer;padding:10px 12px;margin:6px 0;border:1px solid #3B567F;transition:background 0.15s,color 0.15s"';
+    html += ' onmouseenter="this.style.background=\'#2A3F5F\';this.style.color=\'#fff\'" onmouseleave="this.style.background=\'\';this.style.color=\'\'">';
+    html += '<div style="font-weight:600">' + name + '<span style="color:#8C9DB6;font-size:11px">' + hdTag + '</span></div>';
+    html += '<div class="mono" style="font-size:12px;color:#8C9DB6;margin-top:2px">' + sub + '</div>';
+    html += '</div>';
+  }
+  html += '</div>';
+  html += '<div style="margin-top:8px;text-align:center">';
+  html += '<a href="#" style="color:#8C9DB6;font-size:12px" onclick="showImportOptions();return false">+ import or create new wallet</a>';
+  html += '</div>';
+  $('modal-result').innerHTML = html;
+  $('modal-overlay').style.display = 'flex';
+}
+
+function pickWallet(el) {
+  _selectedUnlockAddr = el.getAttribute('data-addr') || '';
+  _selectedUnlockFile = el.getAttribute('data-file') || '';
+  $('modal-sub').textContent = 'enter PIN to unlock';
+  $('modal-result').innerHTML = '';
+  showPinEntry(true);
+}
+
+function showImportOptions() {
+  hideAllModalPanels();
+  $('modal-sub').textContent = 'add wallet';
+  $('modal-btns').style.display = 'flex';
+  $('modal-result').innerHTML = '';
+}
+
 async function init() {
   try {
     var st = await api('GET', '/wallet/status');
@@ -1545,20 +1932,29 @@ async function init() {
       startRefreshTimer();
       return;
     }
-    if (st.needs_pin) {
-      if (st.has_legacy) {
-        $('modal-sub').textContent = 'migrating wallet - set a PIN';
-        showPinSetup('migrate');
-      } else {
-        $('modal-sub').textContent = 'enter PIN to unlock';
-        showPinEntry();
-      }
+    if (st.has_legacy) {
+      $('modal-sub').textContent = 'migrating wallet — set a PIN';
+      showPinSetup('migrate');
       $('modal-overlay').style.display = 'flex';
       return;
     }
-    $('modal-sub').textContent = 'no wallet found';
-    $('modal-btns').style.display = 'flex';
-    $('modal-overlay').style.display = 'flex';
+    var wallets = st.wallets || [];
+    if (wallets.length === 0) {
+      $('modal-sub').textContent = 'no wallet found';
+      $('modal-btns').style.display = 'flex';
+      $('modal-overlay').style.display = 'flex';
+      return;
+    }
+    if (wallets.length === 1 && wallets[0].addr) {
+      _selectedUnlockAddr = wallets[0].addr;
+      _selectedUnlockFile = '';
+      $('modal-sub').textContent = 'enter PIN to unlock';
+      showPinEntry();
+      $('modal-overlay').style.display = 'flex';
+      return;
+    }
+    /* multiple wallets or single unknown - show picker [lambda0xe] */
+    showAccountPicker(wallets);
   } catch (e) {
     $('modal-overlay').style.display = 'flex';
   }

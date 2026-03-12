@@ -193,6 +193,20 @@ static json submit_tx(const octra::Transaction& tx) {
     return res;
 }
 
+static void ensure_pubkey_registered(const std::string& addr, const uint8_t sk[64], const std::string& pub_b64) {
+    auto vr = g_rpc.get_view_pubkey(addr);
+    if (vr.ok && vr.result.is_object() && vr.result.contains("view_pubkey")
+        && !vr.result["view_pubkey"].is_null() && vr.result["view_pubkey"].is_string())
+        return; // already has view pubkey
+    // sign "register_pubkey:<addr>" [lambda0xe]
+    std::string msg = "register_pubkey:" + addr;
+    std::string sig = octra::ed25519_sign_detached(
+        reinterpret_cast<const uint8_t*>(msg.data()), msg.size(), sk);
+    auto rr = g_rpc.register_public_key(addr, pub_b64, sig);
+    if (rr.ok) fprintf(stderr, "pubkey registered for %s\n", addr.c_str());
+    else fprintf(stderr, "pubkey register failed for %s: %s\n", addr.c_str(), rr.error.c_str());
+}
+
 static void ensure_pvac_registered() {
     if (!g_pvac_ok || g_pvac_confirmed) return;
     auto pr = g_rpc.get_pvac_pubkey(g_wallet.addr);
@@ -230,6 +244,7 @@ static EncBalResult get_encrypted_balance() {
 
 static void init_wallet_subsystems() {
     g_rpc.set_url(g_wallet.rpc_url);
+    ensure_pubkey_registered(g_wallet.addr, g_wallet.sk, g_wallet.pub_b64);
     g_pvac_ok = g_pvac.init(g_wallet.priv_b64);
     if (g_pvac_ok) {
         fprintf(stderr, "pvac initialized\n");
@@ -239,10 +254,12 @@ static void init_wallet_subsystems() {
     }
     g_txcache.close();
     std::string cache_path = "data/txcache_" + g_wallet.addr.substr(3, 8);
-    if (g_txcache.open(cache_path))
+    if (g_txcache.open(cache_path)) {
         fprintf(stderr, "txcache opened: %s\n", cache_path.c_str());
-    else
+        g_txcache.ensure_rpc(g_wallet.rpc_url);
+    } else {
         fprintf(stderr, "txcache open failed: %s\n", cache_path.c_str());
+    }
     g_wallet_loaded = true;
 }
 
@@ -288,6 +305,17 @@ int main(int argc, char** argv) {
 
     svr.set_mount_point("/", "static");
 
+    svr.set_exception_handler([](const httplib::Request& req, httplib::Response& res, std::exception_ptr ep) {
+        std::string msg = "internal error";
+        try { if (ep) std::rethrow_exception(ep); }
+        catch (const std::exception& e) { msg = e.what(); }
+        catch (...) {}
+        fprintf(stderr, "[exception] %s %s: %s\n", req.method.c_str(), req.path.c_str(), msg.c_str());
+        res.status = 500;
+        json j; j["error"] = msg;
+        res.set_content(j.dump(), "application/json");
+    });
+
     svr.set_error_handler([](const httplib::Request& req, httplib::Response& res) {
         if (req.path.rfind("/api/", 0) == 0 && res.body.empty()) {
             json j;
@@ -299,12 +327,24 @@ int main(int argc, char** argv) {
     svr.Get("/api/wallet/status", [](const httplib::Request&, httplib::Response& res) {
         json j;
         j["loaded"] = g_wallet_loaded.load();
-        bool has_enc = octra::has_encrypted_wallet();
-        bool has_leg = !has_enc && octra::has_legacy_wallet();
-        j["has_encrypted"] = has_enc;
-        j["has_legacy"] = has_leg;
-        j["needs_pin"] = has_enc || has_leg;
-        j["needs_create"] = !has_enc && !has_leg;
+        bool has_leg = octra::has_legacy_wallet();
+        /* scan all .oct files + manifest */
+        auto all = octra::scan_and_merge_oct_files();
+        bool has_any_oct = false;
+        json wallets = json::array();
+        for (auto& e : all) {
+            has_any_oct = true;
+            json w;
+            w["name"] = e.name;
+            w["file"] = e.file;
+            w["addr"] = e.addr;
+            w["hd"] = e.hd;
+            wallets.push_back(w);
+        }
+        j["has_legacy"] = !has_any_oct && has_leg;
+        j["needs_pin"] = has_any_oct || has_leg;
+        j["needs_create"] = !has_any_oct && !has_leg;
+        j["wallets"] = wallets;
         res.set_content(j.dump(), "application/json");
     });
 
@@ -322,21 +362,45 @@ int main(int argc, char** argv) {
             return;
         }
         std::string pin = body.value("pin", "");
+        std::string addr_hint = body.value("addr", "");
+        std::string file_hint = body.value("file", "");
+        std::string name_hint = body.value("name", "");
         if (pin.size() != 6 || !std::all_of(pin.begin(), pin.end(), ::isdigit)) {
             res.status = 400;
             res.set_content(err_json("pin must be exactly 6 digits").dump(), "application/json");
             return;
         }
+
+        std::string unlock_path = g_wallet_path;
+        if (!file_hint.empty()) {
+
+            if (file_hint.find("..") == std::string::npos &&
+                file_hint.rfind("data/", 0) == 0 &&
+                file_hint.substr(file_hint.size() - 4) == ".oct") {
+                unlock_path = file_hint;
+            }
+        } else if (!addr_hint.empty()) {
+            auto entries = octra::load_manifest();
+            for (auto& e : entries) {
+                if (e.addr == addr_hint) { unlock_path = e.file; break; }
+            }
+        }
         try {
             bool has_leg = octra::has_legacy_wallet();
             bool has_enc = octra::has_encrypted_wallet();
-            if (has_leg && !has_enc) {
+            if (has_leg && !has_enc && addr_hint.empty()) {
                 g_wallet = octra::migrate_wallet(pin);
+                g_wallet_path = octra::WALLET_FILE;
                 fprintf(stderr, "wallet migrated: %s\n", g_wallet.addr.c_str());
             } else {
-                g_wallet = octra::load_wallet_encrypted(g_wallet_path, pin);
+                g_wallet = octra::load_wallet_encrypted(unlock_path, pin);
+                g_wallet_path = unlock_path;
                 fprintf(stderr, "wallet unlocked: %s\n", g_wallet.addr.c_str());
             }
+
+            try {
+                octra::manifest_upsert({name_hint, g_wallet_path, g_wallet.addr, g_wallet.has_master_seed()});
+            } catch (...) {}
             g_pin = pin;
             octra::try_mlock(&g_pin[0], g_pin.size());
             init_wallet_subsystems();
@@ -348,6 +412,7 @@ int main(int argc, char** argv) {
         json j;
         j["address"] = g_wallet.addr;
         j["public_key"] = g_wallet.pub_b64;
+        j["has_master_seed"] = g_wallet.has_master_seed();
         res.set_content(j.dump(), "application/json");
     });
 
@@ -362,7 +427,9 @@ int main(int argc, char** argv) {
         g_pvac_ok = false;
         g_pvac_confirmed = false;
         g_pvac.reset();
-        g_txcache.close();
+
+        leveldb::DB* old_db = g_txcache.detach();
+        if (old_db) std::thread([old_db]() { delete old_db; }).detach();
         octra::secure_zero(g_wallet.sk, 64);
         octra::secure_zero(g_wallet.pk, 32);
         if (!g_pin.empty()) octra::secure_zero(&g_pin[0], g_pin.size());
@@ -395,11 +462,24 @@ int main(int argc, char** argv) {
             res.set_content(err_json("pin must be exactly 6 digits").dump(), "application/json");
             return;
         }
+        std::string name = body.value("name", "wallet");
+        std::string mnemonic;
         try {
-            g_wallet = octra::create_wallet(g_wallet_path, pin);
+            std::string tmp_path = std::string(octra::WALLET_DIR) + "/wallet_new.tmp";
+            auto [wallet, mn] = octra::create_wallet(tmp_path, pin);
+            g_wallet = wallet;
+            mnemonic = mn;
+            /* rename to addr-based path */
+            std::string named_path = octra::wallet_path_for(g_wallet.addr);
+            if (std::rename(tmp_path.c_str(), named_path.c_str()) == 0)
+                g_wallet_path = named_path;
+            else
+                g_wallet_path = tmp_path;
+            /* register in manifest */
+            octra::manifest_upsert({name, g_wallet_path, g_wallet.addr, true});
             g_pin = pin;
             octra::try_mlock(&g_pin[0], g_pin.size());
-            fprintf(stderr, "wallet created: %s\n", g_wallet.addr.c_str());
+            fprintf(stderr, "wallet created: %s → %s\n", g_wallet.addr.c_str(), g_wallet_path.c_str());
             init_wallet_subsystems();
         } catch (const std::exception& e) {
             res.status = 500;
@@ -409,16 +489,14 @@ int main(int argc, char** argv) {
         json j;
         j["address"] = g_wallet.addr;
         j["public_key"] = g_wallet.pub_b64;
+        j["mnemonic"] = mnemonic;
+        octra::secure_zero(&mnemonic[0], mnemonic.size());
         res.set_content(j.dump(), "application/json");
     });
 
     svr.Post("/api/wallet/import", [](const httplib::Request& req, httplib::Response& res) {
         std::lock_guard<std::mutex> lock(g_mtx);
-        if (g_wallet_loaded) {
-            res.status = 409;
-            res.set_content(err_json("wallet already loaded").dump(), "application/json");
-            return;
-        }
+        bool already_loaded = g_wallet_loaded.load();
         json body;
         try { body = json::parse(req.body); } catch (...) {
             res.status = 400;
@@ -426,10 +504,11 @@ int main(int argc, char** argv) {
             return;
         }
         std::string priv = body.value("priv", "");
+        std::string mnemonic = body.value("mnemonic", "");
         std::string pin = body.value("pin", "");
-        if (priv.empty()) {
+        if (priv.empty() && mnemonic.empty()) {
             res.status = 400;
-            res.set_content(err_json("priv required").dump(), "application/json");
+            res.set_content(err_json("priv or mnemonic required").dump(), "application/json");
             return;
         }
         if (pin.size() != 6 || !std::all_of(pin.begin(), pin.end(), ::isdigit)) {
@@ -437,21 +516,46 @@ int main(int argc, char** argv) {
             res.set_content(err_json("pin must be exactly 6 digits").dump(), "application/json");
             return;
         }
+        std::string name = body.value("name", "imported");
+        bool is_mnemonic = false;
         try {
-            g_wallet = octra::import_wallet(g_wallet_path, priv, pin);
-            g_pin = pin;
-            octra::try_mlock(&g_pin[0], g_pin.size());
-            fprintf(stderr, "wallet imported: %s\n", g_wallet.addr.c_str());
-            init_wallet_subsystems();
+            std::string tmp_path = std::string(octra::WALLET_DIR) + "/wallet_imp.tmp";
+            octra::Wallet imported;
+            if (!mnemonic.empty() || octra::looks_like_mnemonic(priv)) {
+                std::string mn = mnemonic.empty() ? priv : mnemonic;
+                imported = octra::import_wallet_mnemonic(tmp_path, mn, pin);
+                is_mnemonic = true;
+                fprintf(stderr, "wallet imported (seed phrase): %s\n", imported.addr.c_str());
+            } else {
+                imported = octra::import_wallet(tmp_path, priv, pin);
+                fprintf(stderr, "wallet imported (private key): %s\n", imported.addr.c_str());
+            }
+            std::string named_path = octra::wallet_path_for(imported.addr);
+            std::string final_path = tmp_path;
+            if (std::rename(tmp_path.c_str(), named_path.c_str()) == 0)
+                final_path = named_path;
+            octra::manifest_upsert({name, final_path, imported.addr, is_mnemonic});
+            if (!already_loaded) {
+
+                g_wallet = imported;
+                g_wallet_path = final_path;
+                g_pin = pin;
+                octra::try_mlock(&g_pin[0], g_pin.size());
+                init_wallet_subsystems();
+            } else {
+
+                octra::secure_zero(imported.sk, 64);
+                octra::secure_zero(imported.pk, 32);
+            }
+            json j;
+            j["address"] = imported.addr;
+            j["switched"] = !already_loaded;
+            res.set_content(j.dump(), "application/json");
         } catch (const std::exception& e) {
             res.status = 400;
             res.set_content(err_json(e.what()).dump(), "application/json");
             return;
         }
-        json j;
-        j["address"] = g_wallet.addr;
-        j["public_key"] = g_wallet.pub_b64;
-        res.set_content(j.dump(), "application/json");
     });
 
     svr.Get("/api/wallet", [](const httplib::Request&, httplib::Response& res) {
@@ -461,22 +565,231 @@ int main(int argc, char** argv) {
         j["public_key"] = g_wallet.pub_b64;
         j["rpc_url"] = g_wallet.rpc_url;
         j["explorer_url"] = g_wallet.explorer_url;
+        j["has_master_seed"] = g_wallet.has_master_seed();
+        j["hd_index"] = g_wallet.hd_index;
+        res.set_content(j.dump(), "application/json");
+    });
+
+    svr.Get("/api/wallet/accounts", [](const httplib::Request&, httplib::Response& res) {
+        auto entries = octra::load_manifest();
+        json accounts = json::array();
+        for (auto& e : entries) {
+            json a;
+            a["name"] = e.name;
+            a["addr"] = e.addr;
+            a["hd"] = e.hd;
+            a["active"] = (g_wallet_loaded && g_wallet.addr == e.addr);
+            accounts.push_back(a);
+        }
+        json j;
+        j["accounts"] = accounts;
+        j["has_master_seed"] = (g_wallet_loaded && g_wallet.has_master_seed());
+        if (g_wallet_loaded && g_wallet.has_master_seed()) {
+            j["next_hd_index"] = octra::manifest_next_hd_index(g_wallet.master_seed_b64);
+        }
+        res.set_content(j.dump(), "application/json");
+    });
+
+    svr.Post("/api/wallet/switch", [](const httplib::Request& req, httplib::Response& res) {
+        std::lock_guard<std::mutex> lock(g_mtx);
+        json body;
+        try { body = json::parse(req.body); } catch (...) {
+            res.status = 400;
+            res.set_content(err_json("invalid json").dump(), "application/json");
+            return;
+        }
+        std::string addr = body.value("addr", "");
+        std::string pin = body.value("pin", "");
+        if (addr.empty() || pin.size() != 6) {
+            res.status = 400;
+            res.set_content(err_json("addr and 6-digit pin required").dump(), "application/json");
+            return;
+        }
+        /* find in manifest */
+        auto entries = octra::load_manifest();
+        std::string target_path;
+        for (auto& e : entries) {
+            if (e.addr == addr) { target_path = e.file; break; }
+        }
+        if (target_path.empty()) {
+            res.status = 404;
+            res.set_content(err_json("account not found in manifest").dump(), "application/json");
+            return;
+        }
+
+        if (g_wallet_loaded) {
+            g_wallet_loaded = false;
+            g_pvac_ok = false;
+            g_pvac_confirmed = false;
+            g_pvac.reset();
+            leveldb::DB* old_db = g_txcache.detach();
+            if (old_db) std::thread([old_db]() { delete old_db; }).detach();
+            octra::secure_zero(g_wallet.sk, 64);
+            octra::secure_zero(g_wallet.pk, 32);
+        }
+
+        try {
+            g_wallet = octra::load_wallet_encrypted(target_path, pin);
+            g_wallet_path = target_path;
+            g_pin = pin;
+            octra::try_mlock(&g_pin[0], g_pin.size());
+            fprintf(stderr, "switched to wallet: %s\n", g_wallet.addr.c_str());
+            init_wallet_subsystems();
+        } catch (const std::exception& e) {
+            res.status = 403;
+            res.set_content(err_json(e.what()).dump(), "application/json");
+            return;
+        }
+        json j;
+        j["address"] = g_wallet.addr;
+        j["public_key"] = g_wallet.pub_b64;
+        j["has_master_seed"] = g_wallet.has_master_seed();
+        res.set_content(j.dump(), "application/json");
+    });
+
+    svr.Post("/api/wallet/derive", [](const httplib::Request& req, httplib::Response& res) {
+        WALLET_GUARD
+        std::lock_guard<std::mutex> lock(g_mtx);
+        if (!g_wallet.has_master_seed()) {
+            res.status = 400;
+            res.set_content(err_json("wallet has no master seed (imported via private key)").dump(), "application/json");
+            return;
+        }
+        json body;
+        try { body = json::parse(req.body); } catch (...) {
+            res.status = 400;
+            res.set_content(err_json("invalid json").dump(), "application/json");
+            return;
+        }
+        std::string pin = body.value("pin", "");
+        std::string name = body.value("name", "");
+        if (pin.size() != 6 || !std::all_of(pin.begin(), pin.end(), ::isdigit)) {
+            res.status = 400;
+            res.set_content(err_json("6-digit pin required").dump(), "application/json");
+            return;
+        }
+        if (pin != g_pin) {
+            res.status = 403;
+            res.set_content(err_json("wrong pin").dump(), "application/json");
+            return;
+        }
+        /* find next unused HD index */
+        int next_index = octra::manifest_next_hd_index(g_wallet.master_seed_b64);
+        if (name.empty()) name = "account " + std::to_string(next_index);
+        try {
+            auto w = octra::derive_hd_account(
+                g_wallet.master_seed_b64, (uint32_t)next_index,
+                g_wallet.rpc_url, g_wallet.explorer_url, pin);
+            std::string path = octra::wallet_path_for(w.addr);
+            octra::manifest_upsert({name, path, w.addr, true});
+            fprintf(stderr, "derived HD account #%d: %s\n", next_index, w.addr.c_str());
+            if (g_pvac_ok) {
+                octra::PvacBridge tmp_pvac;
+                if (tmp_pvac.init(w.priv_b64)) {
+                    auto pk_raw = tmp_pvac.serialize_pubkey();
+                    std::string pk_blob(pk_raw.begin(), pk_raw.end());
+                    std::string pk_b64 = tmp_pvac.serialize_pubkey_b64();
+                    std::string reg_sig = octra::sign_register_request(w.addr, pk_blob, w.sk);
+                    auto rr = g_rpc.register_pvac_pubkey(w.addr, pk_b64, reg_sig, w.pub_b64);
+                    if (rr.ok) fprintf(stderr, "pvac registered for derived %s\n", w.addr.c_str());
+                    else fprintf(stderr, "pvac register failed for %s: %s\n", w.addr.c_str(), rr.error.c_str());
+                }
+            }
+            json j;
+            j["address"] = w.addr;
+            j["hd_index"] = next_index;
+            j["name"] = name;
+            res.set_content(j.dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 500;
+            res.set_content(err_json(e.what()).dump(), "application/json");
+        }
+    });
+
+    svr.Post("/api/wallet/rename", [](const httplib::Request& req, httplib::Response& res) {
+        json body;
+        try { body = json::parse(req.body); } catch (...) {
+            res.status = 400;
+            res.set_content(err_json("invalid json").dump(), "application/json");
+            return;
+        }
+        std::string addr = body.value("addr", "");
+        std::string name = body.value("name", "");
+        if (addr.empty() || name.empty()) {
+            res.status = 400;
+            res.set_content(err_json("addr and name required").dump(), "application/json");
+            return;
+        }
+        octra::manifest_rename(addr, name);
+        json j;
+        j["ok"] = true;
+        res.set_content(j.dump(), "application/json");
+    });
+
+    svr.Delete("/api/wallet/account", [](const httplib::Request& req, httplib::Response& res) {
+        json body;
+        try { body = json::parse(req.body); } catch (...) {
+            res.status = 400;
+            res.set_content(err_json("invalid json").dump(), "application/json");
+            return;
+        }
+        std::string addr = body.value("addr", "");
+        if (addr.empty()) {
+            res.status = 400;
+            res.set_content(err_json("addr required").dump(), "application/json");
+            return;
+        }
+        if (g_wallet_loaded && g_wallet.addr == addr) {
+            res.status = 409;
+            res.set_content(err_json("cannot remove active account").dump(), "application/json");
+            return;
+        }
+        octra::manifest_remove(addr);
+        json j;
+        j["ok"] = true;
         res.set_content(j.dump(), "application/json");
     });
 
     svr.Get("/api/balance", [](const httplib::Request&, httplib::Response& res) {
         WALLET_GUARD
-        std::lock_guard<std::mutex> lock(g_mtx);
-        ensure_pvac_registered();
+
+        std::string addr, pub_b64, sig_bal;
+        bool pvac_ok;
+        {
+            std::lock_guard<std::mutex> lock(g_mtx);
+            if (!g_wallet_loaded) {
+                res.status = 503;
+                res.set_content(err_json("no wallet loaded").dump(), "application/json");
+                return;
+            }
+            addr = g_wallet.addr;
+            pub_b64 = g_wallet.pub_b64;
+            sig_bal = octra::sign_balance_request(addr, g_wallet.sk);
+            pvac_ok = g_pvac_ok;
+        }
+
         auto bi = get_nonce_balance();
         json j;
         j["public_balance"] = bi.balance_raw;
         j["nonce"] = bi.nonce;
         j["staging"] = 0;
-        if (g_pvac_ok) {
+        if (pvac_ok) {
             try {
-                auto eb = get_encrypted_balance();
-                j["encrypted_balance"] = std::to_string(eb.decrypted);
+                auto er = g_rpc.get_encrypted_balance(addr, sig_bal, pub_b64);
+                if (er.ok && er.result.is_object()) {
+                    std::string cipher = er.result.value("cipher", "0");
+                    if (!cipher.empty() && cipher != "0") {
+                        std::lock_guard<std::mutex> lock(g_mtx);
+                        if (g_wallet_loaded && g_pvac_ok)
+                            j["encrypted_balance"] = std::to_string(g_pvac.get_balance(cipher));
+                        else
+                            j["encrypted_balance"] = "0";
+                    } else {
+                        j["encrypted_balance"] = "0";
+                    }
+                } else {
+                    j["encrypted_balance"] = "0";
+                }
             } catch (...) {
                 j["encrypted_balance"] = "0";
             }
@@ -775,9 +1088,10 @@ int main(int argc, char** argv) {
         }
 
         auto vr = g_rpc.get_view_pubkey(to);
-        if (!vr.ok || !vr.result.is_object() || !vr.result.contains("view_pubkey")) {
+        if (!vr.ok || !vr.result.is_object() || !vr.result.contains("view_pubkey")
+            || vr.result["view_pubkey"].is_null() || !vr.result["view_pubkey"].is_string()) {
             res.status = 400;
-            res.set_content(err_json("recipient has no view pubkey").dump(), "application/json");
+            res.set_content(err_json("recipient has no view pubkey - they must register pvac first").dump(), "application/json");
             return;
         }
         std::string their_vpub_b64 = vr.result["view_pubkey"].get<std::string>();
@@ -1099,9 +1413,29 @@ int main(int argc, char** argv) {
         json j;
         j["address"] = g_wallet.addr;
         j["public_key"] = g_wallet.pub_b64;
-        j["private_key"] = g_wallet.priv_b64;
         j["view_pubkey"] = octra::base64_encode(view_pk, 32);
+        j["has_master_seed"] = g_wallet.has_master_seed();
         octra::secure_zero(view_sk, 32);
+        res.set_content(j.dump(), "application/json");
+    });
+
+    svr.Post("/api/keys/private", [](const httplib::Request& req, httplib::Response& res) {
+        WALLET_GUARD
+        json body;
+        try { body = json::parse(req.body); } catch (...) {
+            res.status = 400;
+            res.set_content(err_json("invalid json").dump(), "application/json");
+            return;
+        }
+        std::string pin = body.value("pin", "");
+        try { octra::load_wallet_encrypted(g_wallet_path, pin); } catch (...) {
+            res.status = 403;
+            res.set_content(err_json("wrong PIN").dump(), "application/json");
+            return;
+        }
+        json j;
+        j["private_key"] = g_wallet.priv_b64;
+        j["mnemonic"] = g_wallet.mnemonic;
         res.set_content(j.dump(), "application/json");
     });
 
@@ -1567,10 +1901,19 @@ int main(int argc, char** argv) {
             res.set_content(err_json("rpc_url required").dump(), "application/json");
             return;
         }
+        bool cache_cleared = false;
         try {
+            std::string old_rpc = g_wallet.rpc_url;
             if (!new_explorer.empty()) g_wallet.explorer_url = new_explorer;
             octra::save_settings(g_wallet_path, g_wallet, new_rpc, g_pin);
             g_rpc.set_url(g_wallet.rpc_url);
+            if (old_rpc != g_wallet.rpc_url) {
+                g_txcache.clear();
+                g_txcache.put("meta:rpc_url", g_wallet.rpc_url);
+                cache_cleared = true;
+                fprintf(stderr, "txcache cleared: rpc changed %s -> %s\n",
+                        old_rpc.c_str(), g_wallet.rpc_url.c_str());
+            }
         } catch (const std::exception& e) {
             res.status = 500;
             res.set_content(err_json(e.what()).dump(), "application/json");
@@ -1580,6 +1923,7 @@ int main(int argc, char** argv) {
         j["ok"] = true;
         j["rpc_url"] = g_wallet.rpc_url;
         j["explorer_url"] = g_wallet.explorer_url;
+        j["cache_cleared"] = cache_cleared;
         res.set_content(j.dump(), "application/json");
     });
 
@@ -1624,6 +1968,44 @@ int main(int argc, char** argv) {
         j["ok"] = true;
         res.set_content(j.dump(), "application/json");
     });
+
+    std::thread pvac_bg([&]() {
+        std::this_thread::sleep_for(std::chrono::seconds(10)); // initial delay
+        while (true) {
+            try {
+                if (g_wallet_loaded && g_pvac_ok) {
+                    auto entries = octra::load_manifest();
+                    for (auto& e : entries) {
+                        if (e.addr.empty() || e.file.empty()) continue;
+                        auto ar = g_rpc.get_account(e.addr);
+                        if (!ar.ok) continue;
+                        try {
+                            auto w = octra::load_wallet_encrypted(e.file, g_pin);
+                            ensure_pubkey_registered(w.addr, w.sk, w.pub_b64);
+                            auto pr = g_rpc.get_pvac_pubkey(e.addr);
+                            bool pvac_ok = pr.ok && pr.result.is_object() && !pr.result["pvac_pubkey"].is_null()
+                                && pr.result["pvac_pubkey"].is_string() && !pr.result["pvac_pubkey"].get<std::string>().empty();
+                            if (!pvac_ok) {
+                                octra::PvacBridge tmp_pvac;
+                                if (tmp_pvac.init(w.priv_b64)) {
+                                    auto pk_raw = tmp_pvac.serialize_pubkey();
+                                    std::string pk_blob(pk_raw.begin(), pk_raw.end());
+                                    std::string pk_b64 = tmp_pvac.serialize_pubkey_b64();
+                                    std::string reg_sig = octra::sign_register_request(w.addr, pk_blob, w.sk);
+                                    auto rr = g_rpc.register_pvac_pubkey(w.addr, pk_b64, reg_sig, w.pub_b64);
+                                    if (rr.ok) fprintf(stderr, "[bg] pvac registered %s\n", w.addr.c_str());
+                                    else fprintf(stderr, "[bg] pvac failed %s: %s\n", w.addr.c_str(), rr.error.c_str());
+                                }
+                            }
+                            octra::secure_zero(w.sk, 64);
+                        } catch (...) {}
+                    }
+                }
+            } catch (...) {}
+            std::this_thread::sleep_for(std::chrono::seconds(60));
+        }
+    });
+    pvac_bg.detach();
 
     printf("octra_wallet listening on http://127.0.0.1:%d\n", port);
     svr.listen("127.0.0.1", port);

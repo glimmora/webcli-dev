@@ -25,6 +25,9 @@
               2025-2026 Julia L.
 */
 
+
+
+/* only for dev-net testing, does not work for main net */
 var SWAP_ADDR = 'octBjnQBicZs6iMwcRxrdzLYAzyVTi91KEiA8RGkVjco2w6';
 var TOKEN_ADDR = 'oct6J37Wx7Rb1putvfwFrFbGUStE8hGzsb33fhLgUdpTx6d';
 var SCANNER_URL = 'https://devnet.octrascan.io';

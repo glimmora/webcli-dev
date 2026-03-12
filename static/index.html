@@ -44,13 +44,37 @@
       <button class="action-btn" onclick="modalCreate()">create new</button>
     </div>
     <div id="modal-import" style="display:none">
-      <div class="form-row">
-        <label>private key (base64)</label>
-        <textarea id="modal-privkey" rows="3" placeholder="paste base64 private key..."></textarea>
+      <div class="import-tabs">
+        <a href="#" class="import-tab active" onclick="switchImportTab('seed');return false">seed phrase</a>
+        <a href="#" class="import-tab" onclick="switchImportTab('key');return false">private key</a>
+      </div>
+      <div id="import-seed">
+        <div class="form-row">
+          <label>12-word seed phrase</label>
+          <textarea id="modal-mnemonic" rows="3" placeholder="word1 word2 word3 ... word12" spellcheck="false" autocomplete="off"></textarea>
+        </div>
+      </div>
+      <div id="import-key" style="display:none">
+        <div class="form-row">
+          <label>private key (base64)</label>
+          <textarea id="modal-privkey" rows="3" placeholder="paste base64 private key..."></textarea>
+        </div>
       </div>
       <div class="action-row">
         <button class="action-btn" onclick="modalDoImport()">import</button>
         <button class="action-btn" style="background:#8C9DB6" onclick="modalBack()">back</button>
+      </div>
+    </div>
+    <div id="modal-mnemonic-show" style="display:none">
+      <div class="mnemonic-warning">write down your seed phrase - it cannot be recovered</div>
+      <div id="mnemonic-words" class="mnemonic-grid"></div>
+      <div class="form-row" style="margin-top:12px;text-align:center">
+        <label>
+          <input type="checkbox" id="mnemonic-confirm-check"> i have saved my seed phrase
+        </label>
+      </div>
+      <div class="action-row">
+        <button class="action-btn" id="mnemonic-continue-btn" onclick="modalMnemonicDone()" disabled>continue</button>
       </div>
     </div>
     <div id="modal-pin" style="display:none">
@@ -60,6 +84,7 @@
       </div>
       <div class="action-row">
         <button class="action-btn" onclick="modalUnlock()">unlock</button>
+        <button class="action-btn" id="pin-back-btn" style="background:#8C9DB6;display:none" onclick="modalBackFromPin()">back</button>
       </div>
     </div>
     <div id="modal-pin-setup" style="display:none">
@@ -352,7 +377,7 @@
       <div id="ct-call-result"></div>
     </div>
 
-    <div class="section-title">HFHE tools</div>
+    <div class="section-title">FHE tools</div>
     <div class="form-area">
       <div class="form-row">
         <label>encrypt integer to ciphertext</label>
@@ -363,11 +388,11 @@
       </div>
       <div class="form-row" id="fhe-enc-result-row" style="display:none">
         <label>ciphertext (base64) — click to select</label>
-        <textarea id="fhe-enc-output" class="code-editor" rows="3" readonly onclick="this.select()"></textarea>
+        <textarea id="fhe-enc-output" class="code-editor" rows="3" readonly onclick="this.select()" style="white-space:pre-wrap;word-break:break-all"></textarea>
       </div>
       <div class="form-row">
         <label>decrypt ciphertext to integer</label>
-        <textarea id="fhe-dec-input" class="code-editor" rows="3" placeholder="paste base64 ciphertext..."></textarea>
+        <textarea id="fhe-dec-input" class="code-editor" rows="3" placeholder="paste base64 ciphertext..." style="white-space:pre-wrap;word-break:break-all"></textarea>
       </div>
       <div class="action-row">
         <button class="action-btn" onclick="doFheDecrypt()">decrypt</button>
@@ -433,6 +458,12 @@
       </div>
       <div id="settings-result"></div>
     </div>
+    <div class="section-title">wallets</div>
+    <div class="form-area">
+      <div id="wallet-list"><div class="loading">loading...</div></div>
+      <div id="wallet-actions"></div>
+      <div id="wallet-mgmt-result"></div>
+    </div>
     <div class="section-title">change PIN</div>
     <div class="form-area">
       <div class="form-row">
@@ -462,9 +493,9 @@
 
 </div>
 
-<div class="footer">octra_wallet | 2026 | alpha ver. - 0.04.01</div>
+<div class="footer">octra_wallet | 2026 | alpha ver. - 0.04.07</div>
 
 </div>
-<script src="wallet.js?v=6"></script>
+<script src="wallet.js?v=10"></script>
 </body>
 </html>

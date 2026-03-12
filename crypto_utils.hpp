@@ -40,6 +40,7 @@
 #include <windows.h>
 #endif
 #include <openssl/evp.h>
+#include <openssl/hmac.h>
 
 extern "C" {
 #include "lib/tweetnacl.h"
@@ -345,6 +346,102 @@ inline std::vector<uint8_t> wallet_decrypt(
 
     if (ret <= 0) return {};
     return plain;
+}
+
+
+inline std::array<uint8_t, 64> hmac_sha512(const uint8_t* key, size_t key_len,
+                                            const uint8_t* data, size_t data_len) {
+    std::array<uint8_t, 64> out;
+    unsigned int out_len = 64;
+    HMAC(EVP_sha512(), key, (int)key_len, data, data_len, out.data(), &out_len);
+    return out;
+}
+
+inline std::array<uint8_t, 32> derive_hd_seed(const uint8_t master_seed[64], uint32_t index) {
+    std::array<uint8_t, 32> result;
+    if (index == 0) {
+        memcpy(result.data(), master_seed, 32);
+    } else {
+        uint8_t data[68];
+        memcpy(data, master_seed, 64);
+        data[64] = (uint8_t)(index & 0xFF);
+        data[65] = (uint8_t)((index >> 8) & 0xFF);
+        data[66] = (uint8_t)((index >> 16) & 0xFF);
+        data[67] = (uint8_t)((index >> 24) & 0xFF);
+        const char* key = "octra-hd-v1";
+        auto mac = hmac_sha512((const uint8_t*)key, 11, data, 68);
+        memcpy(result.data(), mac.data(), 32);
+        secure_zero(data, 68);
+    }
+    return result;
+}
+
+
+#include "lib/bip39_wordlist.hpp"
+
+inline std::array<uint8_t, 64> mnemonic_to_seed(const std::string& mnemonic,
+                                                  const std::string& passphrase = "") {
+    std::string salt = "mnemonic" + passphrase;
+    std::array<uint8_t, 64> seed;
+    PKCS5_PBKDF2_HMAC(mnemonic.c_str(), (int)mnemonic.size(),
+                       (const uint8_t*)salt.c_str(), (int)salt.size(),
+                       2048, EVP_sha512(), 64, seed.data());
+    return seed;
+}
+
+inline std::string generate_mnemonic_12() {
+    uint8_t entropy[16];
+    randombytes(entropy, 16);
+    auto hash = sha256(entropy, 16);
+    uint8_t bits[17]; // 128 + 8 = 136 bits available
+    memcpy(bits, entropy, 16);
+    bits[16] = hash[0];
+    secure_zero(entropy, 16);
+
+    std::string result;
+    for (int i = 0; i < 12; i++) {
+        int bit_pos = i * 11;
+        int byte_idx = bit_pos / 8;
+        int bit_off = bit_pos % 8;
+        uint32_t val = ((uint32_t)bits[byte_idx] << 16) |
+                       ((uint32_t)bits[byte_idx + 1] << 8);
+        if (byte_idx + 2 < 17) val |= bits[byte_idx + 2];
+        val = (val >> (24 - 11 - bit_off)) & 0x7FF;
+        if (i > 0) result += " ";
+        result += bip39::wordlist[val];
+    }
+    secure_zero(bits, 17);
+    return result;
+}
+
+inline bool validate_mnemonic(const std::string& mnemonic) {
+    std::vector<std::string> words;
+    std::string w;
+    for (char c : mnemonic) {
+        if (c == ' ' || c == '\n' || c == '\t') {
+            if (!w.empty()) { words.push_back(w); w.clear(); }
+        } else {
+            w += (char)tolower(c);
+        }
+    }
+    if (!w.empty()) words.push_back(w);
+    if (words.size() != 12 && words.size() != 15 &&
+        words.size() != 18 && words.size() != 21 && words.size() != 24)
+        return false;
+    for (auto& word : words) {
+        bool found = false;
+        for (int i = 0; i < 2048; i++) {
+            if (bip39::wordlist[i] == word) { found = true; break; }
+        }
+        if (!found) return false;
+    }
+    return true;
+}
+
+inline bool looks_like_mnemonic(const std::string& input) {
+    int spaces = 0;
+    for (char c : input) if (c == ' ') spaces++;
+    return spaces >= 11; // at least 12 words
 }
 
 } // namespace octra

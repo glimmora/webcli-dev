@@ -48,6 +48,31 @@ public:
     void close() { delete db_; db_ = nullptr; path_.clear(); }
     ~TxCache() { close(); }
 
+    leveldb::DB* detach() {
+        leveldb::DB* db = db_;
+        db_ = nullptr;
+        path_.clear();
+        return db;
+    }
+
+    void clear() {
+        std::string p = path_;
+        close();
+        if (!p.empty()) leveldb::DestroyDB(p, leveldb::Options());
+        if (!p.empty()) open(p);
+    }
+
+    void ensure_rpc(const std::string& rpc_url) {
+        auto stored = get("meta:rpc_url");
+        if (stored != rpc_url) {
+            if (!stored.empty())
+                fprintf(stderr, "txcache: rpc mismatch (%s != %s), clearing\n",
+                        stored.c_str(), rpc_url.c_str());
+            clear();
+            put("meta:rpc_url", rpc_url);
+        }
+    }
+
     void put(const std::string& key, const std::string& val) {
         if (db_) db_->Put(leveldb::WriteOptions(), key, val);
     }

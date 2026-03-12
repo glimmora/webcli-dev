@@ -357,19 +357,27 @@ inline std::array<uint8_t, 64> hmac_sha512(const uint8_t* key, size_t key_len,
     return out;
 }
 
-inline std::array<uint8_t, 32> derive_hd_seed(const uint8_t master_seed[64], uint32_t index) {
+inline std::array<uint8_t, 32> derive_hd_seed(const uint8_t master_seed[64],
+                                                uint32_t index,
+                                                int hd_version = 2) {
     std::array<uint8_t, 32> result;
-    if (index == 0) {
+    if (hd_version == 1 && index == 0) {
         memcpy(result.data(), master_seed, 32);
+    } else if (hd_version == 2 && index == 0) {
+        const char* key = "Octra seed";
+        
+        auto mac = hmac_sha512((const uint8_t*)key, 10, master_seed, 64);
+        memcpy(result.data(), mac.data(), 32);
     } else {
+
         uint8_t data[68];
         memcpy(data, master_seed, 64);
         data[64] = (uint8_t)(index & 0xFF);
         data[65] = (uint8_t)((index >> 8) & 0xFF);
         data[66] = (uint8_t)((index >> 16) & 0xFF);
         data[67] = (uint8_t)((index >> 24) & 0xFF);
-        const char* key = "octra-hd-v1";
-        auto mac = hmac_sha512((const uint8_t*)key, 11, data, 68);
+        const char* key = "Octra seed";
+        auto mac = hmac_sha512((const uint8_t*)key, 10, data, 68);
         memcpy(result.data(), mac.data(), 32);
         secure_zero(data, 68);
     }

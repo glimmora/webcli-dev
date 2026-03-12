@@ -62,10 +62,10 @@ struct Wallet {
     uint8_t sk[64];
     uint8_t pk[32];
     std::string pub_b64;
-    /* HD wallet fields (only for mnemonic-created wallets) */
-    std::string master_seed_b64;     // 64-byte BIP39 seed, base64
-    std::string mnemonic;            // 12-word seed phrase (stored encrypted)
-    int hd_index = 0;               // which derived account is active
+    std::string master_seed_b64;
+    std::string mnemonic;
+    int hd_index = 0;
+    int hd_version = 1;
 
     bool has_master_seed() const { return !master_seed_b64.empty(); }
 
@@ -75,12 +75,15 @@ struct Wallet {
     }
 };
 
-/* account manifest entry */
 struct ManifestEntry {
     std::string name;
     std::string file;
     std::string addr;
-    bool hd = false;    // true if derived from master seed
+    bool hd = false;
+    int hd_version = 1;
+    int hd_index = 0;
+    std::string parent_addr;
+    std::string master_seed_hash;
 };
 
 constexpr const char* MANIFEST_FILE = "data/accounts.json";
@@ -114,6 +117,10 @@ inline std::vector<ManifestEntry> load_manifest() {
             m.file = e.value("file", "");
             m.addr = e.value("addr", "");
             m.hd = e.value("hd", false);
+            m.hd_version = e.value("hd_version", 1);
+            m.hd_index = e.value("hd_index", 0);
+            m.parent_addr = e.value("parent_addr", "");
+            m.master_seed_hash = e.value("seed_hash", "");
             entries.push_back(m);
         }
     } catch (...) {}
@@ -129,6 +136,10 @@ inline void save_manifest(const std::vector<ManifestEntry>& entries) {
         j["file"] = e.file;
         j["addr"] = e.addr;
         j["hd"] = e.hd;
+        j["hd_version"] = e.hd_version;
+        j["hd_index"] = e.hd_index;
+        if (!e.parent_addr.empty()) j["parent_addr"] = e.parent_addr;
+        if (!e.master_seed_hash.empty()) j["seed_hash"] = e.master_seed_hash;
         arr.push_back(j);
     }
     std::ofstream f(MANIFEST_FILE);
@@ -143,6 +154,10 @@ inline void manifest_upsert(const ManifestEntry& entry) {
             if (!entry.name.empty()) e.name = entry.name;
             e.file = entry.file;
             e.hd = entry.hd;
+            e.hd_version = entry.hd_version;
+            e.hd_index = entry.hd_index;
+            if (!entry.parent_addr.empty()) e.parent_addr = entry.parent_addr;
+            if (!entry.master_seed_hash.empty()) e.master_seed_hash = entry.master_seed_hash;
             found = true;
             break;
         }
@@ -166,11 +181,21 @@ inline void manifest_rename(const std::string& addr, const std::string& name) {
     save_manifest(entries);
 }
 
+inline std::string compute_seed_hash(const std::string& master_seed_b64) {
+    auto raw = base64_decode(master_seed_b64);
+    auto h = sha256(raw.data(), raw.size());
+    char buf[17];
+    for (int i = 0; i < 8; i++) snprintf(buf + i*2, 3, "%02x", h[i]);
+    return std::string(buf, 16);
+}
+
 inline int manifest_next_hd_index(const std::string& master_seed_b64) {
+    std::string sh = compute_seed_hash(master_seed_b64);
     auto entries = load_manifest();
     int max_idx = -1;
     for (auto& e : entries) {
-        if (e.hd) max_idx++;
+        if (e.hd && e.master_seed_hash == sh && e.hd_index > max_idx)
+            max_idx = e.hd_index;
     }
     return max_idx + 1;
 }
@@ -204,6 +229,7 @@ inline void save_wallet_encrypted(const std::string& path,
     if (!w.master_seed_b64.empty()) {
         j["master_seed"] = w.master_seed_b64;
         j["hd_index"] = w.hd_index;
+        j["hd_version"] = w.hd_version;
         if (!w.mnemonic.empty())
             j["mnemonic"] = w.mnemonic;
     }
@@ -246,6 +272,7 @@ inline Wallet load_wallet_encrypted(const std::string& path,
     w.master_seed_b64 = j.value("master_seed", "");
     w.mnemonic = j.value("mnemonic", "");
     w.hd_index = j.value("hd_index", 0);
+    w.hd_version = j.value("hd_version", 1);  // legacy default
 
     auto raw = base64_decode(w.priv_b64);
     if (raw.size() >= 64) {
@@ -263,12 +290,55 @@ inline Wallet load_wallet_encrypted(const std::string& path,
     return w;
 }
 
+inline int recover_hd_index(const std::string& master_seed_b64,
+                              const std::string& target_addr, int hd_version,
+                              int max_search = 64) {
+    auto master_raw = base64_decode(master_seed_b64);
+    if (master_raw.size() != 64) return -1;
+    for (int i = 0; i < max_search; i++) {
+        auto hd_seed = derive_hd_seed(master_raw.data(), (uint32_t)i, hd_version);
+        uint8_t sk[64], pk[32];
+        keypair_from_seed(hd_seed.data(), sk, pk);
+        secure_zero(hd_seed.data(), 32);
+        std::string addr = derive_address(pk);
+        secure_zero(sk, 64);
+        if (addr == target_addr) return i;
+    }
+    return -1;
+}
+
+inline void manifest_migrate_legacy(const std::string& master_seed_b64,
+                                      const std::string& pin, int hd_version) {
+    std::string sh = compute_seed_hash(master_seed_b64);
+    auto entries = load_manifest();
+    bool changed = false;
+    for (auto& e : entries) {
+        if (!e.hd || !e.master_seed_hash.empty()) continue;
+        try {
+            auto w = load_wallet_encrypted(e.file, pin);
+            if (w.master_seed_b64 == master_seed_b64) {
+                e.master_seed_hash = sh;
+                int idx = recover_hd_index(master_seed_b64, e.addr, hd_version);
+                e.hd_index = (idx >= 0) ? idx : 0;
+                changed = true;
+                fprintf(stderr, "manifest migrate: %s -> seed_hash=%s hd_index=%d\n",
+                    e.addr.c_str(), sh.c_str(), e.hd_index);
+            }
+        } catch (...) {}
+    }
+    if (changed) save_manifest(entries);
+}
+
 inline std::pair<Wallet, std::string> create_wallet(const std::string& path,
                                                       const std::string& pin) {
     std::string mnemonic = generate_mnemonic_12();
     auto seed = mnemonic_to_seed(mnemonic);
+
+    auto hd_seed = derive_hd_seed(seed.data(), 0, 2);
+
     Wallet w;
-    keypair_from_seed(seed.data(), w.sk, w.pk);
+    keypair_from_seed(hd_seed.data(), w.sk, w.pk);
+    secure_zero(hd_seed.data(), 32);
     w.addr = derive_address(w.pk);
     if (w.addr.size() != 47 || w.addr.substr(0, 3) != "oct")
         throw std::runtime_error("derived address is invalid");
@@ -278,6 +348,7 @@ inline std::pair<Wallet, std::string> create_wallet(const std::string& path,
     w.master_seed_b64 = base64_encode(seed.data(), 64);
     w.mnemonic = mnemonic;
     w.hd_index = 0;
+    w.hd_version = 2;
     secure_zero(seed.data(), 64);
     save_wallet_encrypted(path, w, pin);
     try_mlock(w.sk, 64);
@@ -316,14 +387,29 @@ inline Wallet migrate_wallet(const std::string& pin) {
     return w;
 }
 
+inline std::string addr_from_mnemonic(const std::string& mnemonic, int hd_version) {
+    auto seed = mnemonic_to_seed(mnemonic);
+    auto hd_seed = derive_hd_seed(seed.data(), 0, hd_version);
+    uint8_t sk[64], pk[32];
+    keypair_from_seed(hd_seed.data(), sk, pk);
+    secure_zero(hd_seed.data(), 32);
+    secure_zero(seed.data(), 64);
+    auto addr = derive_address(pk);
+    secure_zero(sk, 64);
+    return addr;
+}
+
 inline Wallet import_wallet_mnemonic(const std::string& path,
                                       const std::string& mnemonic,
-                                      const std::string& pin) {
+                                      const std::string& pin,
+                                      int hd_version = 1) {
     if (!validate_mnemonic(mnemonic))
         throw std::runtime_error("invalid seed phrase");
     auto seed = mnemonic_to_seed(mnemonic);
+    auto hd_seed = derive_hd_seed(seed.data(), 0, hd_version);
     Wallet w;
-    keypair_from_seed(seed.data(), w.sk, w.pk);
+    keypair_from_seed(hd_seed.data(), w.sk, w.pk);
+    secure_zero(hd_seed.data(), 32);
     w.addr = derive_address(w.pk);
     if (w.addr.size() != 47 || w.addr.substr(0, 3) != "oct")
         throw std::runtime_error("derived address is invalid");
@@ -333,6 +419,7 @@ inline Wallet import_wallet_mnemonic(const std::string& path,
     w.master_seed_b64 = base64_encode(seed.data(), 64);
     w.mnemonic = mnemonic;
     w.hd_index = 0;
+    w.hd_version = hd_version;
     secure_zero(seed.data(), 64);
     save_wallet_encrypted(path, w, pin);
     try_mlock(w.sk, 64);
@@ -387,12 +474,13 @@ inline Wallet derive_hd_account(const std::string& master_seed_b64,
                                  uint32_t index,
                                  const std::string& rpc_url,
                                  const std::string& explorer_url,
-                                 const std::string& pin) {
+                                 const std::string& pin,
+                                 int hd_version = 2) {
     auto master_raw = base64_decode(master_seed_b64);
     if (master_raw.size() != 64)
         throw std::runtime_error("invalid master seed");
 
-    auto hd_seed = derive_hd_seed(master_raw.data(), index);
+    auto hd_seed = derive_hd_seed(master_raw.data(), index, hd_version);
 
     Wallet w;
     keypair_from_seed(hd_seed.data(), w.sk, w.pk);
@@ -408,6 +496,7 @@ inline Wallet derive_hd_account(const std::string& master_seed_b64,
     w.explorer_url = explorer_url;
     w.master_seed_b64 = master_seed_b64;
     w.hd_index = (int)index;
+    w.hd_version = hd_version;
 
     std::string path = wallet_path_for(w.addr);
     save_wallet_encrypted(path, w, pin);

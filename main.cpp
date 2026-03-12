@@ -294,6 +294,8 @@ int main(int argc, char** argv) {
     octra::ensure_data_dir();
 
     httplib::Server svr;
+    svr.set_read_timeout(300, 0);
+    svr.set_write_timeout(300, 0);
 
     svr.set_post_routing_handler([](const httplib::Request&, httplib::Response& res) {
         res.set_header("X-Frame-Options", "DENY");
@@ -399,7 +401,17 @@ int main(int argc, char** argv) {
             }
 
             try {
-                octra::manifest_upsert({name_hint, g_wallet_path, g_wallet.addr, g_wallet.has_master_seed()});
+                octra::ManifestEntry me;
+                me.name = name_hint;
+                me.file = g_wallet_path;
+                me.addr = g_wallet.addr;
+                me.hd = g_wallet.has_master_seed();
+                me.hd_version = g_wallet.hd_version;
+                me.hd_index = g_wallet.hd_index;
+                if (me.hd) me.master_seed_hash = octra::compute_seed_hash(g_wallet.master_seed_b64);
+                octra::manifest_upsert(me);
+                /* backfill legacy entries that lack seed_hash */
+                if (me.hd) octra::manifest_migrate_legacy(g_wallet.master_seed_b64, pin, g_wallet.hd_version);
             } catch (...) {}
             g_pin = pin;
             octra::try_mlock(&g_pin[0], g_pin.size());
@@ -476,7 +488,17 @@ int main(int argc, char** argv) {
             else
                 g_wallet_path = tmp_path;
             /* register in manifest */
-            octra::manifest_upsert({name, g_wallet_path, g_wallet.addr, true});
+            {
+                octra::ManifestEntry me;
+                me.name = name;
+                me.file = g_wallet_path;
+                me.addr = g_wallet.addr;
+                me.hd = true;
+                me.hd_version = 2;
+                me.hd_index = 0;
+                me.master_seed_hash = octra::compute_seed_hash(g_wallet.master_seed_b64);
+                octra::manifest_upsert(me);
+            }
             g_pin = pin;
             octra::try_mlock(&g_pin[0], g_pin.size());
             fprintf(stderr, "wallet created: %s → %s\n", g_wallet.addr.c_str(), g_wallet_path.c_str());
@@ -523,9 +545,34 @@ int main(int argc, char** argv) {
             octra::Wallet imported;
             if (!mnemonic.empty() || octra::looks_like_mnemonic(priv)) {
                 std::string mn = mnemonic.empty() ? priv : mnemonic;
-                imported = octra::import_wallet_mnemonic(tmp_path, mn, pin);
+                /* autodetect hd_version: try v2 (wallet-gen "Octra seed") and v1 (webcli legacy raw) */
+                int hd_version = 2; /* default = wallet-gen standard */
+                {
+                    std::string addr_v2 = octra::addr_from_mnemonic(mn, 2); /* wallet-gen */
+                    std::string addr_v1 = octra::addr_from_mnemonic(mn, 1); /* webcli legacy */
+                    std::string rpc_url = g_wallet_loaded ? g_wallet.rpc_url : "http://46.101.86.250:8080";
+                    octra::RpcClient probe;
+                    probe.set_url(rpc_url);
+                    auto r2 = probe.get_balance(addr_v2);
+                    auto r1 = probe.get_balance(addr_v1);
+                    int64_t bal2 = 0, bal1 = 0;
+                    auto parse_bal = [](const json& r) -> int64_t {
+                        if (!r.is_object() || !r.contains("balance")) return 0;
+                        auto& b = r["balance"];
+                        if (b.is_number()) return b.get<int64_t>();
+                        if (b.is_string()) { try { return std::stoll(b.get<std::string>()); } catch(...) {} }
+                        return 0;
+                    };
+                    if (r2.ok) bal2 = parse_bal(r2.result);
+                    if (r1.ok) bal1 = parse_bal(r1.result);
+                    /* v1 wins only if it has balance and v2 doesn't */
+                    if (bal1 > 0 && bal2 == 0) hd_version = 1;
+                    fprintf(stderr, "import autodetect: v2=%s (bal=%ld) v1=%s (bal=%ld) -> v%d\n",
+                        addr_v2.c_str(), (long)bal2, addr_v1.c_str(), (long)bal1, hd_version);
+                }
+                imported = octra::import_wallet_mnemonic(tmp_path, mn, pin, hd_version);
                 is_mnemonic = true;
-                fprintf(stderr, "wallet imported (seed phrase): %s\n", imported.addr.c_str());
+                fprintf(stderr, "wallet imported (seed phrase, v%d): %s\n", hd_version, imported.addr.c_str());
             } else {
                 imported = octra::import_wallet(tmp_path, priv, pin);
                 fprintf(stderr, "wallet imported (private key): %s\n", imported.addr.c_str());
@@ -534,7 +581,17 @@ int main(int argc, char** argv) {
             std::string final_path = tmp_path;
             if (std::rename(tmp_path.c_str(), named_path.c_str()) == 0)
                 final_path = named_path;
-            octra::manifest_upsert({name, final_path, imported.addr, is_mnemonic});
+            {
+                octra::ManifestEntry me;
+                me.name = name;
+                me.file = final_path;
+                me.addr = imported.addr;
+                me.hd = is_mnemonic;
+                me.hd_version = imported.hd_version;
+                me.hd_index = 0;
+                if (is_mnemonic) me.master_seed_hash = octra::compute_seed_hash(imported.master_seed_b64);
+                octra::manifest_upsert(me);
+            }
             if (!already_loaded) {
 
                 g_wallet = imported;
@@ -567,6 +624,7 @@ int main(int argc, char** argv) {
         j["explorer_url"] = g_wallet.explorer_url;
         j["has_master_seed"] = g_wallet.has_master_seed();
         j["hd_index"] = g_wallet.hd_index;
+        j["hd_version"] = g_wallet.hd_version;
         res.set_content(j.dump(), "application/json");
     });
 
@@ -578,6 +636,9 @@ int main(int argc, char** argv) {
             a["name"] = e.name;
             a["addr"] = e.addr;
             a["hd"] = e.hd;
+            a["hd_version"] = e.hd_version;
+            a["hd_index"] = e.hd_index;
+            if (!e.parent_addr.empty()) a["parent_addr"] = e.parent_addr;
             a["active"] = (g_wallet_loaded && g_wallet.addr == e.addr);
             accounts.push_back(a);
         }
@@ -679,9 +740,21 @@ int main(int argc, char** argv) {
         try {
             auto w = octra::derive_hd_account(
                 g_wallet.master_seed_b64, (uint32_t)next_index,
-                g_wallet.rpc_url, g_wallet.explorer_url, pin);
+                g_wallet.rpc_url, g_wallet.explorer_url, pin,
+                g_wallet.hd_version);
             std::string path = octra::wallet_path_for(w.addr);
-            octra::manifest_upsert({name, path, w.addr, true});
+            {
+                octra::ManifestEntry me;
+                me.name = name;
+                me.file = path;
+                me.addr = w.addr;
+                me.hd = true;
+                me.hd_version = g_wallet.hd_version;
+                me.hd_index = next_index;
+                me.parent_addr = g_wallet.addr;
+                me.master_seed_hash = octra::compute_seed_hash(g_wallet.master_seed_b64);
+                octra::manifest_upsert(me);
+            }
             fprintf(stderr, "derived HD account #%d: %s\n", next_index, w.addr.c_str());
             if (g_pvac_ok) {
                 octra::PvacBridge tmp_pvac;

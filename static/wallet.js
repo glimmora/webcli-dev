@@ -1398,11 +1398,19 @@ async function loadAccountList() {
     for (var i = 0; i < accounts.length; i++) {
       var a = accounts[i];
       var badge = a.active ? '<span style="color:#4CAF50;margin-right:4px">●</span>' : '';
-      var hdTag = a.hd ? ' <span style="color:#8C9DB6;font-size:11px">[HD]</span>' : '';
+      var hdLabel = '';
+      if (a.hd) {
+        if (a.parent_addr) {
+          var short_parent = a.parent_addr.substring(0, 8) + '...' + a.parent_addr.slice(-4);
+          hdLabel = ' <span style="color:#8C9DB6;font-size:11px">[HD #' + a.hd_index + ' from ' + short_parent + ']</span>';
+        } else {
+          hdLabel = ' <span style="color:#8C9DB6;font-size:11px">[HD]</span>';
+        }
+      }
       var name = a.name || 'unnamed';
       var escapedName = name.replace(/'/g, "\\'");
       html += '<tr>';
-      html += '<td style="padding:6px 8px;vertical-align:middle">' + badge + '<b>' + name + '</b>' + hdTag + '</td>';
+      html += '<td style="padding:6px 8px;vertical-align:middle">' + badge + '<b>' + name + '</b>' + hdLabel + '</td>';
       html += '<td class="mono" style="padding:6px 8px;font-size:11px;vertical-align:middle;word-break:break-all">' + a.addr + '</td>';
       html += '<td style="padding:6px 4px;text-align:right;white-space:nowrap;vertical-align:middle">';
       if (!a.active) {

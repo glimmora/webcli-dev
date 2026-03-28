@@ -63,6 +63,7 @@ extern "C" {
 #include "lib/pvac_bridge.hpp"
 #include "lib/stealth.hpp"
 #include "lib/txcache.hpp"
+#include "lib/ledger_bridge.hpp"
 
 using json = nlohmann::json;
 

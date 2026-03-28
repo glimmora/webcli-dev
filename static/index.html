@@ -42,6 +42,24 @@
     <div id="modal-btns">
       <button class="action-btn" onclick="modalShowImport()">import</button>
       <button class="action-btn" onclick="modalCreate()">create new</button>
+      <button class="action-btn" id="btn-ledger-connect" onclick="modalConnectLedger()" style="background:#00A3E4;margin-top:8px">connect ledger</button>
+    </div>
+    <div id="modal-ledger" style="display:none">
+      <div class="ledger-info">
+        <div class="ledger-icon">🪙</div>
+        <div id="ledger-status">Connect your Ledger Nano S/X device</div>
+        <div id="ledger-instructions" style="font-size:12px;color:#7f8c8d;margin-top:8px">
+          1. Connect your Ledger device via USB<br>
+          2. Unlock with your PIN<br>
+          3. Open the Octra app on Ledger<br>
+          4. Click "Connect" below
+        </div>
+      </div>
+      <div class="action-row" style="margin-top:16px">
+        <button class="action-btn" id="btn-ledger-scan" onclick="scanLedgerDevices()">connect</button>
+        <button class="action-btn" style="background:#8C9DB6" onclick="modalBack()">cancel</button>
+      </div>
+      <div id="ledger-result" style="margin-top:12px"></div>
     </div>
     <div id="modal-import" style="display:none">
       <div class="import-tabs">
@@ -117,6 +135,7 @@
 
 <header>
   <div class="left">
+    <img src="octra-logo.png" alt="Octra" class="logo">
     <div class="title">octra_wallet</div>
     <div class="subtitle" id="hdr-addr">loading...</div>
   </div>
@@ -544,6 +563,7 @@
 <div class="footer">octra_wallet | 2026 | alpha ver. - 0.04.10</div>
 
 </div>
-<script src="wallet.js?v=10"></script>
+<script src="ledger.js?v=1"></script>
+<script src="wallet.js?v=11"></script>
 </body>
 </html>

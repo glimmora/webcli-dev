@@ -69,7 +69,7 @@ TARGET:=octra_wallet
 
 endif
 
-CXXFLAGS+=-I$(PVAC_DIR)
+CXXFLAGS+=-I$(PVAC_DIR) -I.
 LIBPVAC:=$(PVAC_BUILD)/libpvac.$(SHARED_EXT)
 
 all: $(TARGET)
@@ -94,8 +94,11 @@ lib/tweetnacl.o: lib/tweetnacl.c
 lib/randombytes.o: lib/randombytes.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(TARGET): main.cpp lib/tweetnacl.o lib/randombytes.o $(LIBPVAC)
-	$(CXX) $(CXXFLAGS) -o $@ main.cpp lib/tweetnacl.o lib/randombytes.o $(LDFLAGS)
+lib/ledger_bridge.o: lib/ledger_bridge.cpp lib/ledger_bridge.hpp
+	$(CXX) $(CXXFLAGS) -c -o $@ lib/ledger_bridge.cpp
+
+$(TARGET): main.cpp lib/tweetnacl.o lib/randombytes.o lib/ledger_bridge.o $(LIBPVAC)
+	$(CXX) $(CXXFLAGS) -o $@ main.cpp lib/tweetnacl.o lib/randombytes.o lib/ledger_bridge.o $(LDFLAGS)
 
 clean:
 	rm -f $(TARGET) lib/*.o

@@ -2943,5 +2943,243 @@ $('modal-pin-confirm').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') modalFinishSetup();
 });
 
+// ============================================================================
+// Ledger Hardware Wallet Integration
+// ============================================================================
+
+var _ledgerWallet = null;
+var _ledgerConnected = false;
+
+function modalConnectLedger() {
+  $('modal-btns').style.display = 'none';
+  $('modal-import').style.display = 'none';
+  $('modal-ledger').style.display = 'block';
+  $('modal-title').textContent = 'Ledger Wallet';
+  $('modal-sub').textContent = 'Connect your hardware wallet';
+  
+  // Check if Ledger is supported
+  if (!window.LedgerWallet || !window.LedgerWallet.isSupported()) {
+    $('ledger-result').innerHTML = '<div class="error">WebUSB/WebHID not supported in this browser. Please use Chrome, Edge, or Firefox.</div>';
+    return;
+  }
+}
+
+async function scanLedgerDevices() {
+  var btn = $('btn-ledger-scan');
+  var result = $('ledger-result');
+  
+  btn.disabled = true;
+  btn.textContent = 'connecting...';
+  result.innerHTML = '';
+  result.className = '';
+  
+  try {
+    // Create Ledger wallet instance
+    _ledgerWallet = new window.LedgerWallet();
+    
+    // Connect to device
+    var transport = window.LedgerWallet.getTransportType();
+    $('ledger-status').textContent = 'Connecting via ' + (transport === 'webusb' ? 'WebUSB' : 'WebHID') + '...';
+    
+    var addrInfo = await _ledgerWallet.connect();
+    
+    _ledgerConnected = true;
+    
+    // Show success
+    result.innerHTML = '<div class="success">Connected to Ledger at:<br><span class="mono">' + 
+      escapeHtml(addrInfo.address) + '</span></div>';
+    result.className = 'success';
+    
+    $('ledger-status').textContent = 'Ledger connected successfully!';
+    btn.textContent = 'connected';
+    
+    // Import the ledger address as a watch-only wallet
+    await importLedgerAddress(addrInfo.address, addrInfo.publicKey);
+    
+  } catch (e) {
+    console.error('Ledger connection error:', e);
+    result.innerHTML = '<div class="error">Failed to connect: ' + escapeHtml(e.message) + '</div>';
+    result.className = 'error';
+    $('ledger-status').textContent = 'Connection failed';
+    btn.disabled = false;
+    btn.textContent = 'try again';
+    _ledgerConnected = false;
+  }
+}
+
+async function importLedgerAddress(address, publicKey) {
+  try {
+    // Create a watch-only wallet entry
+    var me = {
+      name: 'Ledger ' + address.substr(3, 8),
+      file: '',
+      addr: address,
+      hd: false,
+      ledger: true,
+      publicKey: publicKey
+    };
+    
+    // Store in session
+    if (!window._ledgerAddresses) {
+      window._ledgerAddresses = [];
+    }
+    window._ledgerAddresses.push(me);
+    
+    // Update manifest
+    var manifest = localStorage.getItem('octra_manifest');
+    var entries = manifest ? JSON.parse(manifest) : [];
+    
+    // Check if already exists
+    var exists = entries.find(function(e) { return e.addr === address; });
+    if (!exists) {
+      entries.push({
+        name: me.name,
+        file: 'ledger://' + address,
+        addr: address,
+        hd: false,
+        ledger: true
+      });
+      localStorage.setItem('octra_manifest', JSON.stringify(entries));
+    }
+    
+    // Auto-unlock and load the wallet
+    await unlockLedgerWallet(address, publicKey);
+    
+  } catch (e) {
+    console.error('Import error:', e);
+  }
+}
+
+async function unlockLedgerWallet(address, publicKey) {
+  try {
+    // Set global wallet state
+    _walletAddr = address;
+    _hasMasterSeed = false;
+    
+    // Update header
+    $('hdr-addr').innerHTML = '<span class="mono">' + escapeHtml(address) + '</span>' +
+      '<span class="ledger-badge">LEDGER</span>';
+    
+    // Store public key for signing
+    window._ledgerPublicKey = publicKey;
+    
+    // Hide modal
+    $('modal-overlay').style.display = 'none';
+    
+    // Show UI
+    $('hdr-status').textContent = 'ledger connected';
+    $('hdr-logout').style.display = 'inline-block';
+    $('hdr-dev').style.display = 'inline-block';
+    
+    // Load wallet info
+    await loadWalletInfo();
+    startRefreshTimer();
+    
+    console.log('Ledger wallet unlocked:', address);
+    
+  } catch (e) {
+    console.error('Ledger unlock error:', e);
+    alert('Failed to unlock Ledger wallet: ' + e.message);
+  }
+}
+
+async function signTransactionWithLedger(tx) {
+  if (!_ledgerWallet || !_ledgerConnected) {
+    throw new Error('Ledger not connected');
+  }
+  
+  // Sign transaction using Ledger
+  var signature = await _ledgerWallet.signTransaction(tx);
+  
+  // Convert to base64
+  return arrayToBase64(signature);
+}
+
+function arrayToBase64(arr) {
+  var binary = '';
+  var len = arr.byteLength || arr.length;
+  for (var i = 0; i < len; i++) {
+    binary += String.fromCharCode(arr[i]);
+  }
+  return window.btoa(binary);
+}
+
+// Override doSend to use Ledger when connected
+var _originalDoSend = window.doSend;
+window.doSend = async function() {
+  if (_ledgerConnected && _ledgerWallet) {
+    // Use Ledger signing
+    var to = $('send-to').value.trim();
+    var amount = $('send-amount').value.trim();
+    var msg = $('send-msg').value.trim();
+    var fee = $('send-fee').value.trim();
+    
+    if (!to || !amount) {
+      $('send-result').innerHTML = '<div class="error">address and amount required</div>';
+      return;
+    }
+    
+    try {
+      // Get nonce and balance
+      var balInfo = await getBalanceAndNonce();
+      
+      // Build transaction
+      var tx = {
+        from: _walletAddr,
+        to: to,
+        amount: parseAmount(amount),
+        nonce: balInfo.nonce,
+        ou: fee ? parseInt(fee) : balInfo.recommended_fee,
+        timestamp: Math.floor(Date.now() / 1000),
+        message: msg
+      };
+      
+      // Sign with Ledger
+      var sigB64 = await signTransactionWithLedger(tx);
+      tx.signature = sigB64;
+      tx.public_key = arrayToBase64(_ledgerPublicKey || new Uint8Array(32));
+      
+      // Submit
+      var result = await api('POST', '/tx/submit', tx);
+      
+      if (result.error) {
+        $('send-result').innerHTML = '<div class="error">' + escapeHtml(result.error) + '</div>';
+      } else {
+        $('send-result').innerHTML = '<div class="success">tx sent: ' + 
+          escapeHtml(result.tx_hash || result.hash) + '</div>';
+        $('send-to').value = '';
+        $('send-amount').value = '';
+        $('send-msg').value = '';
+        refreshAll();
+      }
+    } catch (e) {
+      $('send-result').innerHTML = '<div class="error">' + escapeHtml(e.message) + '</div>';
+    }
+    return;
+  }
+  
+  // Use original implementation for software wallets
+  if (_originalDoSend) {
+    _originalDoSend();
+  }
+};
+
+// Add ledger detection on init
+var _originalInit = window.init;
+window.init = async function() {
+  // Load ledger addresses from manifest
+  var manifest = localStorage.getItem('octra_manifest');
+  if (manifest) {
+    try {
+      var entries = JSON.parse(manifest);
+      window._ledgerAddresses = entries.filter(function(e) { return e.ledger; });
+    } catch (e) {}
+  }
+  
+  if (_originalInit) {
+    await _originalInit();
+  }
+};
+
 initEditor();
 init();

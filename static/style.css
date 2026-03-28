@@ -78,6 +78,12 @@ header .left {
   min-width: 0;
 }
 
+header .logo {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 4px;
+}
+
 header .title {
   font-size: 12px;
   font-weight: bold;
@@ -1359,3 +1365,59 @@ td {
   background: #3B567F; color: #fff; border-color: #3B567F;
 }
 .modal-btn-primary:hover { background: #2C4060; }
+
+/* Ledger modal styles */
+.ledger-info {
+  text-align: center;
+  padding: 16px 0;
+}
+.ledger-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+#ledger-status {
+  font-size: 13px;
+  font-weight: bold;
+  color: #3B567F;
+  margin-bottom: 8px;
+}
+#ledger-instructions {
+  font-size: 11px;
+  color: #7f8c8d;
+  line-height: 1.6;
+  text-align: left;
+  background: #F5F6FA;
+  padding: 12px;
+  border-radius: 4px;
+  border: 1px solid #E5E9EF;
+}
+#ledger-result {
+  font-size: 11px;
+  padding: 8px;
+  border-radius: 4px;
+}
+#ledger-result.error {
+  background: #FDE8E8;
+  color: #C53030;
+  border: 1px solid #FCC5C5;
+}
+#ledger-result.success {
+  background: #E6FFFA;
+  color: #285E61;
+  border: 1px solid #B2F5EA;
+}
+#btn-ledger-connect {
+  background: #00A3E4;
+}
+#btn-ledger-connect:hover {
+  background: #008CC7;
+}
+.ledger-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #00A3E4;
+  color: #fff;
+  border-radius: 3px;
+  font-size: 10px;
+  margin-left: 8px;
+}

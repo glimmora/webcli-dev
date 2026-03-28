@@ -27,9 +27,9 @@ TARGET="${1:-nanos}"
 
 print_header() {
     echo ""
-    echo -e "${BLUE}========================================${NC}"
-    echo -e "${BLUE}  Octra Wallet - Ledger Installer${NC}"
-    echo -e "${BLUE}========================================${NC}"
+    echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}║  Octra Wallet - Ledger Installer       ║${NC}"
+    echo -e "${BLUE}╚════════════════════════════════════════╝${NC}"
     echo ""
 }
 
@@ -53,17 +53,18 @@ check_prerequisites() {
     # Check Python
     if ! command -v python3 &> /dev/null; then
         print_error "Python 3 is not installed."
+        print_info "Run: sudo ./scripts/setup-udev.sh to install all dependencies"
         exit 1
     fi
     print_status "Python 3 found"
-    
+
     # Check ledgerblue
-    if ! python3 -c "import ledgerblue" &> /dev/null; then
+    if ! python3 -c "import ledgerblue" &> /dev/null 2>&1; then
         print_warning "ledgerblue not installed. Installing..."
-        pip3 install --break-system-packages ledgerblue
+        pip3 install --break-system-packages ledgerblue || pip3 install ledgerblue
     fi
     print_status "ledgerblue installed"
-    
+
     # Check hex file exists (Makefile.standard_app outputs to bin/ subdirectory)
     local hex_file="$APP_DIR/build/${TARGET}/bin/app.hex"
     if [ ! -f "$hex_file" ]; then
@@ -118,15 +119,16 @@ check_device_connection() {
     echo "  2. Unlocked with PIN"
     echo "  3. On the main screen (not in an app)"
     echo ""
-    
-    read -p "Press Enter when ready..."
-    
+
     # Try to detect device
     if lsusb | grep -q "2c97"; then
         print_status "Ledger device detected"
     else
         print_warning "Could not detect Ledger device"
-        print_info "Continuing anyway (may fail if not connected)"
+        print_info "Please connect your Ledger device and try again"
+        print_info "If device is connected, you may need to run:"
+        print_info "  sudo ./scripts/setup-udev.sh"
+        print_info "Then log out and log back in"
     fi
 }
 
@@ -135,10 +137,10 @@ delete_existing_app() {
     if [ ! -f "$hex_file" ]; then
         hex_file="$APP_DIR/build/${TARGET}/app.hex"
     fi
-    
+
     echo ""
     print_info "Checking for existing Octra app..."
-    
+
     # Try to delete existing app (ignore errors if not installed)
     python3 -m ledgerblue.deleteApp \
         --appName "Octra" \
@@ -151,12 +153,12 @@ install_app() {
     if [ ! -f "$hex_file" ]; then
         hex_file="$APP_DIR/build/${TARGET}/app.hex"
     fi
-    
+
     echo ""
     print_status "Installing Octra app to Ledger $(get_device_name)..."
     echo ""
-    
-    python3 -m ledgerblue.loadApp \
+
+    if python3 -m ledgerblue.loadApp \
         --targetId "$target_id" \
         --fileName "$hex_file" \
         --appFlags 0x00 \
@@ -164,9 +166,7 @@ install_app() {
         --appVersion "1.0.0" \
         --appPath "/" \
         --tlv \
-        --offline
-    
-    if [ $? -eq 0 ]; then
+        --offline; then
         echo ""
         print_status "Installation successful!"
     else
@@ -177,7 +177,8 @@ install_app() {
         echo "  1. Ensure Ledger is unlocked"
         echo "  2. Disconnect and reconnect USB"
         echo "  3. Try running as root: sudo ./scripts/install.sh $TARGET"
-        echo "  4. On Linux, check udev rules: see docs/udev-rules.md"
+        echo "  4. On Linux, check udev rules: sudo ./scripts/setup-udev.sh"
+        echo "  5. Close Ledger Live if it's running"
         echo ""
         exit 1
     fi
@@ -186,15 +187,15 @@ install_app() {
 verify_installation() {
     echo ""
     print_info "Verifying installation..."
-    
+
     # Give device a moment to refresh
     sleep 2
-    
+
     print_status "Installation complete!"
     echo ""
-    echo -e "${GREEN}========================================${NC}"
-    echo -e "${GREEN}  Octra App Installed Successfully!${NC}"
-    echo -e "${GREEN}========================================${NC}"
+    echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║  Octra App Installed Successfully!     ║${NC}"
+    echo -e "${GREEN}╚════════════════════════════════════════╝${NC}"
     echo ""
     echo "Device: Ledger $(get_device_name)"
     echo "App:    Octra v1.0.0"
@@ -217,11 +218,11 @@ verify_installation() {
 
 main() {
     print_header
-    
+
     echo -e "Target Device: ${GREEN}$(get_device_name)${NC}"
     echo -e "Target ID:     ${YELLOW}$(get_target_id)${NC}"
     echo ""
-    
+
     check_prerequisites
     check_device_connection
     delete_existing_app

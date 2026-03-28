@@ -21,34 +21,48 @@ APP_DIR="$(dirname "$SCRIPT_DIR")"
 # Default target
 TARGET="${1:-nanos}"
 
+# Docker command (will be set to sudo if needed)
+DOCKER_CMD="docker"
+
 # =============================================================================
 # Helper Functions
 # =============================================================================
 
 print_header() {
     echo ""
-    echo -e "${BLUE}========================================${NC}"
-    echo -e "${BLUE}  Octra Wallet Ledger App Builder${NC}"
-    echo -e "${BLUE}========================================${NC}"
+    echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}║  Octra Wallet Ledger App Builder       ║${NC}"
+    echo -e "${BLUE}╚════════════════════════════════════════╝${NC}"
     echo ""
 }
 
 print_status() { echo -e "${GREEN}✓${NC} $1"; }
 print_warning() { echo -e "${YELLOW}⚠${NC} $1"; }
 print_error() { echo -e "${RED}✗${NC} $1"; }
+print_info() { echo -e "${BLUE}ℹ${NC} $1"; }
 
 check_docker() {
     if ! command -v docker &> /dev/null; then
         print_error "Docker is not installed. Please install Docker first."
+        print_info "Run: sudo ./scripts/setup-udev.sh to install all dependencies"
         exit 1
     fi
-    
+
+    # Check if Docker daemon is running (try without sudo first, then with sudo)
     if ! docker ps &> /dev/null; then
-        print_error "Docker daemon is not running. Please start Docker."
-        exit 1
+        if sudo docker ps &> /dev/null 2>&1; then
+            # Docker requires sudo, update the script to use sudo
+            DOCKER_CMD="sudo docker"
+            print_warning "Docker requires sudo privileges"
+        else
+            print_error "Docker daemon is not running. Please start Docker."
+            print_info "Run: sudo systemctl start docker"
+            print_info "Or run: sudo ./scripts/setup-udev.sh to setup and start Docker"
+            exit 1
+        fi
+    else
+        print_status "Docker is available"
     fi
-    
-    print_status "Docker is available"
 }
 
 check_target() {
@@ -58,7 +72,7 @@ check_target() {
             ;;
         *)
             print_error "Invalid target: $TARGET"
-            echo "Valid targets: nanos, nanox, stax"
+            echo "Valid targets: nanos, nanos2, nanox, stax"
             exit 1
             ;;
     esac
@@ -67,7 +81,7 @@ check_target() {
 get_sdk_path() {
     case "$TARGET" in
         nanos|nano-s) echo "/opt/nanos-secure-sdk" ;;
-        nanos2) echo "/opt/nanos2-secure-sdk" ;;
+        nanos2) echo "/opt/nanosplus-secure-sdk" ;;
         nanox|nano-x) echo "/opt/nanox-secure-sdk" ;;
         stax) echo "/opt/stax-secure-sdk" ;;
     esac
@@ -98,38 +112,42 @@ build_app() {
     local sdk_path=$(get_sdk_path)
     local device_name=$(get_device_name)
     local size_limit=$(get_size_limit)
-    
+
     print_header
     echo -e "Building for: ${GREEN}$device_name${NC}"
     echo -e "SDK Path:   ${YELLOW}$sdk_path${NC}"
     echo -e "Size Limit: ${YELLOW}$size_limit bytes${NC}"
     echo ""
-    
-    # Clean previous build
+
+    # Clean previous build (use sudo if Docker requires it)
     print_status "Cleaning previous build..."
     cd "$APP_DIR"
-    rm -rf build/
-    
+    if [ "$DOCKER_CMD" = "sudo docker" ]; then
+        sudo rm -rf build/
+    else
+        rm -rf build/
+    fi
+
     # Pull Docker image if not present
     print_status "Checking Docker image..."
-    if ! docker images | grep -q ledger-app-builder-lite; then
+    if ! $DOCKER_CMD images | grep -q ledger-app-builder-lite; then
         echo "Pulling Ledger app builder image..."
-        docker pull ghcr.io/ledgerhq/ledger-app-builder/ledger-app-builder-lite:latest
+        $DOCKER_CMD pull ghcr.io/ledgerhq/ledger-app-builder/ledger-app-builder-lite:latest
     fi
     print_status "Docker image ready"
-    
+
     # Build with Docker
     echo ""
     print_status "Building application..."
     echo ""
-    
-    docker run --rm \
+
+    $DOCKER_CMD run --rm \
         -e BOLOS_SDK="$sdk_path" \
         -v "$APP_DIR":/app \
         -w /app \
         ghcr.io/ledgerhq/ledger-app-builder/ledger-app-builder-lite:latest \
         make 2>&1 | tee /tmp/build.log
-    
+
     # Check if build produced hex file (Makefile.standard_app outputs to bin/ subdirectory)
     local hex_file="build/${TARGET}/bin/app.hex"
     if [ ! -f "$hex_file" ]; then
@@ -138,18 +156,18 @@ build_app() {
     if [ -f "$hex_file" ]; then
         echo ""
         print_status "Build successful!"
-        
+
         # Check file size
         local size=$(stat -c%s "$hex_file" 2>/dev/null || stat -f%z "$hex_file")
         echo ""
-        echo -e "${BLUE}========================================${NC}"
+        echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
         echo -e "${GREEN}  BUILD COMPLETE${NC}"
-        echo -e "${BLUE}========================================${NC}"
+        echo -e "${BLUE}╚════════════════════════════════════════╝${NC}"
         echo ""
         echo "  Output:  $hex_file"
         echo "  Size:    $size bytes"
         echo "  Limit:   $size_limit bytes"
-        
+
         if [ "$size" -gt "$size_limit" ]; then
             echo ""
             print_error "Size exceeds limit!"
@@ -210,6 +228,6 @@ build_app
 echo -e "${GREEN}Build completed successfully!${NC}"
 echo ""
 echo "Next steps:"
-echo "  1. Connect your Ledger $device_name"
+echo "  1. Connect your Ledger $(get_device_name)"
 echo "  2. Run: ./scripts/install.sh $TARGET"
 echo ""

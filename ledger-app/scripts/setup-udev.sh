@@ -179,13 +179,16 @@ install_build_dependencies() {
         print_status "Python 3 is already installed"
     fi
 
-    # Install ledgerblue Python package
+    # Install ledgerblue Python package (compatible version)
     if ! python3 -c "import ledgerblue" &> /dev/null 2>&1; then
         print_info "Installing ledgerblue..."
+        # Install latest available version
         pip3 install --break-system-packages ledgerblue || pip3 install ledgerblue
     else
-        print_status "ledgerblue is already installed"
+        LEDGERBLUE_VERSION=$(pip3 show ledgerblue 2>/dev/null | grep Version | cut -d' ' -f2)
+        print_info "ledgerblue version: $LEDGERBLUE_VERSION"
     fi
+    print_status "ledgerblue installed"
 
     # Install additional build tools
     print_info "Installing additional build tools..."

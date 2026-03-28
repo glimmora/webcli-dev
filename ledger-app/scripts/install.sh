@@ -158,15 +158,16 @@ install_app() {
     print_status "Installing Octra app to Ledger $(get_device_name)..."
     echo ""
 
+    # Use compatible arguments for ledgerblue
+    # Note: --offline requires a value (true/false)
     if python3 -m ledgerblue.loadApp \
         --targetId "$target_id" \
         --fileName "$hex_file" \
         --appFlags 0x00 \
         --appName "Octra" \
         --appVersion "1.0.0" \
-        --appPath "/" \
         --tlv \
-        --offline; then
+        --offline true; then
         echo ""
         print_status "Installation successful!"
     else

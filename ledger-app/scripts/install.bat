@@ -140,7 +140,10 @@ echo.
 call :print_status "Installing Octra app to Ledger %DEVICE_NAME%..."
 echo.
 
-python -m ledgerblue.loadApp --targetId "%TARGET_ID%" --fileName "%HEX_FILE%" --appFlags 0x00 --appName "Octra" --appVersion "1.0.0" --appPath "/" --tlv --offline
+REM Use compatible arguments for ledgerblue
+REM Removed deprecated --appPath argument
+REM --offline requires a value (true/false)
+python -m ledgerblue.loadApp --targetId "%TARGET_ID%" --fileName "%HEX_FILE%" --appFlags 0x00 --appName "Octra" --appVersion "1.0.0" --tlv --offline true
 
 if %errorlevel% equ 0 (
     echo.

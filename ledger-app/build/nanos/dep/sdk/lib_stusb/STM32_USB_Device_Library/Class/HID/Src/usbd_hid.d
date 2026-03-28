@@ -1,0 +1,23 @@
+build/nanos/obj/sdk/lib_stusb/STM32_USB_Device_Library/Class/HID/Src/usbd_hid.o: \
+  /opt/nanos-secure-sdk/lib_stusb/STM32_USB_Device_Library/Class/HID/Src/usbd_hid.c \
+  /opt/nanos-secure-sdk/include/os_helpers.h \
+  /opt/nanos-secure-sdk/include/os_io_seproxyhal.h \
+  /opt/nanos-secure-sdk/include/bolos_target.h \
+  /opt/nanos-secure-sdk/include/decorators.h \
+  /opt/nanos-secure-sdk/include/os_io.h \
+  /opt/nanos-secure-sdk/include/os_math.h \
+  /opt/nanos-secure-sdk/include/os_print.h \
+  /opt/nanos-secure-sdk/include/os_types.h \
+  /opt/nanos-secure-sdk/include/os_ux.h \
+  /opt/nanos-secure-sdk/include/os_app.h \
+  /opt/nanos-secure-sdk/include/os_utils.h \
+  /opt/nanos-secure-sdk/include/arch.h \
+  /opt/nanos-secure-sdk/include/os_hal.h \
+  /opt/nanos-secure-sdk/include/seproxyhal_protocol.h \
+  /opt/nanos-secure-sdk/lib_stusb/STM32_USB_Device_Library/Class/HID/Inc/usbd_hid.h \
+  /opt/nanos-secure-sdk/lib_stusb/STM32_USB_Device_Library/Core/Inc/usbd_ioreq.h \
+  /opt/nanos-secure-sdk/lib_stusb/STM32_USB_Device_Library/Core/Inc/usbd_def.h \
+  /opt/nanos-secure-sdk/lib_stusb/usbd_conf.h \
+  /opt/nanos-secure-sdk/lib_stusb/STM32_USB_Device_Library/Core/Inc/usbd_core.h \
+  /opt/nanos-secure-sdk/lib_stusb/STM32_USB_Device_Library/Core/Inc/usbd_ctlreq.h \
+  /opt/nanos-secure-sdk/lib_stusb_impl/usbd_hid_impl.h

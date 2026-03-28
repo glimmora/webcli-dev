@@ -1,0 +1,158 @@
+#
+#    Ledger BOLOS SDK Makefile for Octra Wallet App
+#    Production-ready build system for Nano S, Nano X, and Stax
+#
+#    Copyright 2025-2026 Octra Labs
+#
+
+# Detect target from Docker environment or use default
+ifeq ($(TARGET_NAME),)
+	TARGET_NAME := nanos
+endif
+
+# BOLOS SDK path - set by ledger-app-builder Docker image
+ifeq ($(BOLOS_SDK),)
+	# Default paths for different targets
+	ifeq ($(TARGET_NAME),nanos)
+	    BOLOS_SDK := /opt/nanos-secure-sdk
+	else ifeq ($(TARGET_NAME),nanox)
+	    BOLOS_SDK := /opt/nanox-secure-sdk
+	else ifeq ($(TARGET_NAME),stax)
+	    BOLOS_SDK := /opt/stax-secure-sdk
+	else
+	    BOLOS_SDK := /opt/nanos-secure-sdk
+	endif
+endif
+
+# Verify SDK exists
+ifeq ($(wildcard $(BOLOS_SDK)/Makefile.defines),)
+$(warning BOLOS SDK not found at $(BOLOS_SDK))
+$(warning Set BOLOS_SDK environment variable or use ledger-app-builder Docker)
+endif
+
+# Application info
+APPNAME = "Octra"
+APPVERSION = "1.0.0"
+APPBAGLICON = icons/octra.gif
+
+# Source files
+SOURCE_FILES = \
+	src/main.c \
+	src/app.c \
+	src/crypto.c \
+	src/handler_get.c \
+	src/handler_sign.c \
+	src/ui.c
+
+# Include SDK defines
+include $(BOLOS_SDK)/Makefile.defines
+
+# Include paths
+INCLUDE_PATHS += -I$(CURDIR)/include
+
+# Compiler flags
+CFLAGS += -O2 -Wall -Wextra -Wno-unused-parameter
+
+# App flags for size optimization
+ifeq ($(TARGET_NAME),nanos)
+	CFLAGS += -DBAGL_HEIGHT=32 -DIO_SEPROXYHAL_BUFFER_SIZE_B=300
+else ifeq ($(TARGET_NAME),nanox)
+	CFLAGS += -DBAGL_HEIGHT=64 -DIO_SEPROXYHAL_BUFFER_SIZE_B=300
+else ifeq ($(TARGET_NAME),stax)
+	CFLAGS += -DBAGL_HEIGHT=128 -DIO_SEPROXYHAL_BUFFER_SIZE_B=300
+endif
+
+# Output directory
+OUTPUT_FOLDER := build/$(TARGET_NAME)
+
+# Default target
+all: $(OUTPUT_FOLDER)/app.hex size-check
+
+# Create output directory
+$(OUTPUT_FOLDER):
+	mkdir -p $(OUTPUT_FOLDER)
+
+# Build app
+$(OUTPUT_FOLDER)/app.hex: $(SOURCE_FILES) | $(OUTPUT_FOLDER)
+	@echo "Building Octra app for $(TARGET_NAME)..."
+	$(CC) $(CFLAGS) $(INCLUDE_PATHS) -o $@ $(SOURCE_FILES)
+	@echo "Build complete: $@"
+
+# Size check target
+size-check: $(OUTPUT_FOLDER)/app.hex
+	@echo ""
+	@echo "=== App Size Check ==="
+	@SIZE=$$(stat -c%s $(OUTPUT_FOLDER)/app.hex 2>/dev/null || stat -f%z $(OUTPUT_FOLDER)/app.hex); \
+	if [ "$(TARGET_NAME)" = "nanos" ]; then \
+	    MAX=184320; LABEL="Nano S"; \
+	elif [ "$(TARGET_NAME)" = "nanox" ]; then \
+	    MAX=409600; LABEL="Nano X"; \
+	else \
+	    MAX=1572864; LABEL="Stax"; \
+	fi; \
+	echo "$$LABEL limit: $$MAX bytes"; \
+	echo "App size: $$SIZE bytes"; \
+	PERCENT=$$((SIZE * 100 / MAX)); \
+	echo "Usage: $$PERCENT%"; \
+	if [ "$$SIZE" -gt "$$MAX" ]; then \
+	    echo "ERROR: App size exceeds limit!"; \
+	    exit 1; \
+	else \
+	    echo "OK: App size within limit ✓"; \
+	fi
+
+# Load to device
+load: $(OUTPUT_FOLDER)/app.hex
+	@echo "Loading Octra app to $(TARGET_NAME)..."
+	python3 -m ledgerblue.loadApp \
+	    --targetId $(TARGET_ID) \
+	    --fileName $(OUTPUT_FOLDER)/app.hex \
+	    --appFlags 0x00 \
+	    --appName $(APPNAME) \
+	    --appVersion $(APPVERSION) \
+	    --appPath "/" \
+	    --icon `python3 -m ledgerblue.icon --hexfile $(APPBAGLICON) 2>/dev/null || echo "00000000"` \
+	    --tlv \
+	    --offline
+
+# Delete app from device
+delete:
+	python3 -m ledgerblue.deleteApp --appName $(APPNAME)
+
+# Clean build
+clean:
+	rm -rf build
+	rm -f *.elf *.hex *.map
+
+# Debug build
+debug: CFLAGS += -g -DDEBUG
+debug: $(OUTPUT_FOLDER)/app.hex
+
+# Help
+help:
+	@echo "Octra Wallet Ledger App - Build System"
+	@echo ""
+	@echo "Usage:"
+	@echo "  make                  - Build for default target (Nano S)"
+	@echo "  make TARGET_NAME=nanos - Build for Nano S"
+	@echo "  make TARGET_NAME=nanox - Build for Nano X"
+	@echo "  make TARGET_NAME=stax  - Build for Stax"
+	@echo "  make load             - Load app to device"
+	@echo "  make delete           - Delete app from device"
+	@echo "  make clean            - Clean build artifacts"
+	@echo ""
+	@echo "Using Docker (recommended):"
+	@echo "  docker run --rm -v \$$(pwd):/app -w /app \\"
+	@echo "    ghcr.io/ledgerhq/ledger-app-builder/ledger-app-builder-lite:latest \\"
+	@echo "    make TARGET_NAME=nanos"
+	@echo ""
+	@echo "Environment:"
+	@echo "  BOLOS_SDK     - Path to BOLOS SDK (auto-set in Docker)"
+	@echo "  TARGET_NAME   - Target device (nanos/nanox/stax)"
+	@echo ""
+	@echo "Size Limits:"
+	@echo "  Nano S:  180 KB (184320 bytes)"
+	@echo "  Nano X:  400 KB (409600 bytes)"
+	@echo "  Stax:    1.5 MB (1572864 bytes)"
+
+.PHONY: all size-check load delete clean debug help

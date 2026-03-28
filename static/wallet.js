@@ -2679,8 +2679,8 @@ function modalDoImport() {
       return;
     }
     var words = mn.split(/\s+/);
-    if (words.length !== 12 && words.length !== 24) {
-      $('modal-result').innerHTML = '<div class="result-msg result-error">seed phrase must be 12 or 24 words</div>';
+    if (words.length !== 12 && words.length !== 15 && words.length !== 24) {
+      $('modal-result').innerHTML = '<div class="result-msg result-error">seed phrase must be 12, 15, or 24 words</div>';
       return;
     }
     _pendingMnemonic = words.join(' ');
@@ -2770,7 +2770,8 @@ async function modalFinishSetup() {
   $('modal-result').innerHTML = '<div class="loading">processing...</div>';
   try {
     if (_pendingAction === 'create') {
-      var resp = await api('POST', '/wallet/create', { pin: pin });
+      var wordCount = parseInt($('modal-word-count').value) || 12;
+      var resp = await api('POST', '/wallet/create', { pin: pin, word_count: wordCount });
       if (resp.mnemonic) {
         hideAllModalPanels();
         $('modal-sub').textContent = 'your seed phrase';

@@ -330,8 +330,9 @@ inline void manifest_migrate_legacy(const std::string& master_seed_b64,
 }
 
 inline std::pair<Wallet, std::string> create_wallet(const std::string& path,
-                                                      const std::string& pin) {
-    std::string mnemonic = generate_mnemonic_12();
+                                                      const std::string& pin,
+                                                      int word_count = 12) {
+    std::string mnemonic = generate_mnemonic(word_count);
     auto seed = mnemonic_to_seed(mnemonic);
 
     auto hd_seed = derive_hd_seed(seed.data(), 0, 2);

@@ -524,10 +524,16 @@ int main(int argc, char** argv) {
             return;
         }
         std::string name = body.value("name", "wallet");
+        int word_count = body.value("word_count", 12);
+        if (word_count != 12 && word_count != 15 && word_count != 24) {
+            res.status = 400;
+            res.set_content(err_json("word_count must be 12, 15, or 24").dump(), "application/json");
+            return;
+        }
         std::string mnemonic;
         try {
             std::string tmp_path = std::string(octra::WALLET_DIR) + "/wallet_new.tmp";
-            auto [wallet, mn] = octra::create_wallet(tmp_path, pin);
+            auto [wallet, mn] = octra::create_wallet(tmp_path, pin, word_count);
             g_wallet = wallet;
             mnemonic = mn;
             std::string named_path = octra::wallet_path_for(g_wallet.addr);
@@ -559,6 +565,7 @@ int main(int argc, char** argv) {
         j["address"] = g_wallet.addr;
         j["public_key"] = g_wallet.pub_b64;
         j["mnemonic"] = mnemonic;
+        j["word_count"] = word_count;
         octra::secure_zero(&mnemonic[0], mnemonic.size());
         res.set_content(j.dump(), "application/json");
     });

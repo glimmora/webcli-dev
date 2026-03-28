@@ -50,7 +50,7 @@
       </div>
       <div id="import-seed">
         <div class="form-row">
-          <label>12-word seed phrase</label>
+          <label>seed phrase</label>
           <textarea id="modal-mnemonic" rows="3" placeholder="word1 word2 word3 ... word12" spellcheck="false" autocomplete="off"></textarea>
         </div>
       </div>
@@ -95,6 +95,14 @@
       <div class="form-row">
         <label>confirm PIN</label>
         <input type="password" id="modal-pin-confirm" maxlength="6" inputmode="numeric" placeholder="------" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <label>seed phrase length</label>
+        <select id="modal-word-count" style="width:100%;padding:10px;font-size:14px;border:1px solid #D0D7E2;border-radius:4px;background:#fff">
+          <option value="12">12 words (standard)</option>
+          <option value="15">15 words (more secure)</option>
+          <option value="24">24 words (maximum security)</option>
+        </select>
       </div>
       <div class="action-row">
         <button class="action-btn" onclick="modalFinishSetup()">set PIN</button>

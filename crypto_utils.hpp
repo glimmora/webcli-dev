@@ -397,29 +397,48 @@ inline std::array<uint8_t, 64> mnemonic_to_seed(const std::string& mnemonic,
     return seed;
 }
 
-inline std::string generate_mnemonic_12() {
-    uint8_t entropy[16];
-    randombytes(entropy, 16);
-    auto hash = sha256(entropy, 16);
-    uint8_t bits[17]; // 128 + 8 = 136 bits available
-    memcpy(bits, entropy, 16);
-    bits[16] = hash[0];
-    secure_zero(entropy, 16);
+inline std::string generate_mnemonic(int word_count = 12) {
+    if (word_count != 12 && word_count != 15 && word_count != 24) {
+        word_count = 12;
+    }
+    
+    int entropy_bytes = (word_count * 11) / 8;
+    
+    uint8_t entropy[32];
+    randombytes(entropy, entropy_bytes);
+    auto hash = sha256(entropy, entropy_bytes);
+    
+    uint8_t bits[33];
+    memcpy(bits, entropy, entropy_bytes);
+    bits[entropy_bytes] = hash[0];
+    secure_zero(entropy, entropy_bytes);
 
     std::string result;
-    for (int i = 0; i < 12; i++) {
+    for (int i = 0; i < word_count; i++) {
         int bit_pos = i * 11;
         int byte_idx = bit_pos / 8;
         int bit_off = bit_pos % 8;
         uint32_t val = ((uint32_t)bits[byte_idx] << 16) |
                        ((uint32_t)bits[byte_idx + 1] << 8);
-        if (byte_idx + 2 < 17) val |= bits[byte_idx + 2];
+        if (byte_idx + 2 < (int)sizeof(bits)) val |= bits[byte_idx + 2];
         val = (val >> (24 - 11 - bit_off)) & 0x7FF;
         if (i > 0) result += " ";
         result += bip39::wordlist[val];
     }
-    secure_zero(bits, 17);
+    secure_zero(bits, sizeof(bits));
     return result;
+}
+
+inline std::string generate_mnemonic_12() {
+    return generate_mnemonic(12);
+}
+
+inline std::string generate_mnemonic_15() {
+    return generate_mnemonic(15);
+}
+
+inline std::string generate_mnemonic_24() {
+    return generate_mnemonic(24);
 }
 
 inline bool validate_mnemonic(const std::string& mnemonic) {

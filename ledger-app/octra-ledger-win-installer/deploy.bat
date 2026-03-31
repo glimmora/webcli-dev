@@ -3,11 +3,8 @@ REM ========================================================================
 REM  Octra Wallet Ledger — Windows 11 Deploy
 REM  Deploys the Octra app to a connected Ledger device.
 REM
-REM  Prerequisites:
-REM    1. Run setup-windows.bat first (one-time)
-REM    2. Connect your Ledger via USB
-REM    3. Unlock with PIN
-REM    4. Do NOT open any app on the Ledger (stay on home screen)
+REM  NOTE: Ledger Nano X blocks sideloading without a developer certificate.
+REM        Ledger Nano S Plus supports sideloading without a certificate.
 REM ========================================================================
 title Octra Ledger Deploy
 
@@ -16,6 +13,7 @@ setlocal EnableDelayedExpansion
 set "SCRIPT_DIR=%~dp0"
 set "APP_NAME=Octra"
 set "APP_VERSION=1.0.0"
+set "API_LEVEL=25"
 
 echo.
 echo ================================================================
@@ -26,19 +24,19 @@ echo.
 REM --- Select target ---------------------------------------------------
 echo Select your Ledger device:
 echo.
-echo   [1] Ledger Nano X
-echo   [2] Ledger Nano S Plus
+echo   [1] Ledger Nano S Plus  (sideload supported)
+echo   [2] Ledger Nano X       (requires developer certificate)
 echo.
 set /p CHOICE="Enter choice (1 or 2): "
 
 if "%CHOICE%"=="1" (
-    set "TARGET=nanox"
-    set "TARGET_ID=0x33000004"
-    set "DEVICE_NAME=Ledger Nano X"
-) else if "%CHOICE%"=="2" (
     set "TARGET=nanos2"
     set "TARGET_ID=0x33100004"
     set "DEVICE_NAME=Ledger Nano S Plus"
+) else if "%CHOICE%"=="2" (
+    set "TARGET=nanox"
+    set "TARGET_ID=0x33000004"
+    set "DEVICE_NAME=Ledger Nano X"
 ) else (
     echo Invalid choice.
     pause
@@ -51,6 +49,39 @@ if not exist "!HEX_FILE!" (
     echo ERROR: Build artifact not found: !HEX_FILE!
     pause
     exit /b 1
+)
+
+REM --- Nano X warning ---------------------------------------------------
+if "%CHOICE%"=="2" (
+    echo.
+    echo ================================================================
+    echo   WARNING: Ledger Nano X does NOT support sideloading.
+    echo ================================================================
+    echo.
+    echo   Status code 0x1400 means: "Sideload is not supported on Nano X"
+    echo.
+    echo   You have two options:
+    echo.
+    echo   A) Use a Ledger Nano S Plus instead (supports sideloading)
+    echo.
+    echo   B) Obtain a Ledger developer certificate:
+    echo      1. Apply at: https://developers.ledger.com/
+    echo      2. Once approved, you receive a certificate key
+    echo      3. Add --rootPrivateKey YOUR_KEY to the command
+    echo.
+    echo   C) Use the web-based integration instead (no app needed):
+    echo      1. Start the Octra webcli
+    echo      2. Open http://127.0.0.1:8420
+    echo      3. Click "Connect Ledger"
+    echo.
+    echo ================================================================
+    echo.
+    set /p PROCEED="Attempt deployment anyway? (y/n): "
+    if /i not "!PROCEED!"=="y" (
+        echo Cancelled.
+        pause
+        exit /b 0
+    )
 )
 
 echo.
@@ -67,19 +98,17 @@ if /i not "!CONFIRM!"=="y" (
     exit /b 0
 )
 
-REM --- Delete existing app (if any) ------------------------------------
+REM --- Deploy (single command: delete old + install new) ---------------
 echo.
-echo [*] Removing existing Octra app (if installed)...
-python -m ledgerblue.deleteApp ^
-    --targetId !TARGET_ID! ^
-    --appName "!APP_NAME!" ^
-    --rootPrivateKey 0000000000000000000000000000000000000000000000000000000000000000 ^
-    2>nul
-
-REM --- Install app -----------------------------------------------------
+echo [*] Deploying %APP_NAME% v%APP_VERSION% to !DEVICE_NAME!...
 echo.
-echo [*] Installing %APP_NAME% v%APP_VERSION% to !DEVICE_NAME!...
-echo     Approve the operation on your Ledger when prompted.
+echo IMPORTANT:
+echo   1. Make sure your Ledger is UNLOCKED with PIN
+echo   2. Stay on the HOME SCREEN (no app open)
+echo   3. When prompted on the Ledger, press the RIGHT button to approve
+echo.
+echo Press any key when ready...
+pause >nul
 echo.
 
 python -m ledgerblue.loadApp ^
@@ -87,9 +116,10 @@ python -m ledgerblue.loadApp ^
     --fileName "!HEX_FILE!" ^
     --appName "!APP_NAME!" ^
     --appVersion "!APP_VERSION!" ^
+    --apiLevel !API_LEVEL! ^
     --appFlags 0x00 ^
-    --tlv ^
-    --rootPrivateKey 0000000000000000000000000000000000000000000000000000000000000000
+    --delete ^
+    --tlv
 
 if %errorlevel% equ 0 (
     echo.
@@ -104,11 +134,14 @@ if %errorlevel% equ 0 (
 ) else (
     echo.
     echo   DEPLOYMENT FAILED.
-    echo   Make sure:
-    echo     - Ledger is connected via USB
-    echo     - Ledger is unlocked with PIN
-    echo     - No app is open on the Ledger
-    echo     - You approved the operation on the device
+    echo.
+    echo   Common causes:
+    echo     - Nano X: sideload blocked (error 0x1400)
+    echo       → Use Nano S Plus or get developer certificate
+    echo     - Ledger not unlocked
+    echo     - An app is open on the Ledger (go to home screen)
+    echo     - Ledger Live is running (close it)
+    echo     - USB connection issue (replug cable)
 )
 
 echo.

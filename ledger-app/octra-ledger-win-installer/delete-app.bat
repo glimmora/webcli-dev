@@ -28,8 +28,7 @@ echo.
 echo Removing Octra from !DEVICE_NAME!...
 python -m ledgerblue.deleteApp ^
     --targetId !TARGET_ID! ^
-    --appName "Octra" ^
-    --rootPrivateKey 0000000000000000000000000000000000000000000000000000000000000000
+    --appName "Octra"
 
 echo.
 pause

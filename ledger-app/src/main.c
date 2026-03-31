@@ -252,7 +252,15 @@ static uint16_t handle_get_version(void) {
     G_io_apdu_buffer[0] = 1; /* Major */
     G_io_apdu_buffer[1] = 0; /* Minor */
     G_io_apdu_buffer[2] = 0; /* Patch */
-    G_io_apdu_buffer[3] = 1; /* Device type: 1=Nano S, 2=Nano X */
+#if defined(TARGET_NANOX)
+    G_io_apdu_buffer[3] = 2; /* Device type: 2=Nano X */
+#elif defined(TARGET_NANOS2)
+    G_io_apdu_buffer[3] = 3; /* Device type: 3=Nano S Plus */
+#elif defined(TARGET_STAX)
+    G_io_apdu_buffer[3] = 4; /* Device type: 4=Stax */
+#else
+    G_io_apdu_buffer[3] = 1; /* Device type: 1=Nano S */
+#endif
     return 4;
 }
 

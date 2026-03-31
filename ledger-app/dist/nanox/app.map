@@ -1,0 +1,471 @@
+     VMA      LMA     Size Align Out     In      Symbol
+       0        0        0     1 PAGE_SIZE = 256
+       0        0        0     1 STACK_MIN_SIZE = DEFINED ( stack_min_size ) ? stack_min_size : 1500
+       0        0        0     1 END_STACK = ORIGIN ( SRAM ) + LENGTH ( SRAM )
+c0de0000 c0de0000     2e11     4 .text
+c0de0000 c0de0000        0     1         _text = .
+c0de0000 c0de0000        0     1         _nvram_start = .
+c0de0000 c0de0000       34     4         build/nanox/obj/app/ledger-app/src/main.o:(.boot)
+c0de0000 c0de0000        0     1                 $t.1
+c0de0001 c0de0001       34     1                 app_main
+c0de002c c0de002c        0     1                 $d.2
+c0de0034 c0de0034       14     2         build/nanox/obj/sdk/lib_standard_app/main.o:(.boot)
+c0de0034 c0de0034        0     1                 $t.4
+c0de0035 c0de0035       14     1                 main
+c0de0048 c0de0048        0     1         _code = .
+c0de0048 c0de0048        6     2         build/nanox/obj/app/ledger-app/src/main.o:(.text.app_exit)
+c0de0048 c0de0048        0     1                 $t.0
+c0de0049 c0de0049        6     1                 app_exit
+c0de0050 c0de0050      3b4     4         build/nanox/obj/app/ledger-app/src/main.o:(.text.app_main_impl)
+c0de0050 c0de0050        0     1                 $t.3
+c0de0051 c0de0051      3b4     1                 app_main_impl
+c0de03f8 c0de03f8        0     1                 $d.4
+c0de0404 c0de0404       18     2         build/nanox/obj/app/ledger-app/src/main.o:(.text.read_u32_be)
+c0de0404 c0de0404        0     1                 $t.5
+c0de0405 c0de0405       18     1                 read_u32_be
+c0de041c c0de041c       54     2         build/nanox/obj/app/ledger-app/src/main.o:(.text.derive_keypair)
+c0de041c c0de041c        0     1                 $t.6
+c0de041d c0de041d       54     1                 derive_keypair
+c0de0470 c0de0470      110     4         build/nanox/obj/app/ledger-app/src/main.o:(.text.get_address)
+c0de0470 c0de0470        0     1                 $t.7
+c0de0471 c0de0471      110     1                 get_address
+c0de057c c0de057c        0     1                 $d.8
+c0de0580 c0de0580       74     2         build/nanox/obj/app/ledger-app/src/main.o:(.text.os_derive_bip32_with_seed_no_throw)
+c0de0580 c0de0580        0     1                 $t.9
+c0de0581 c0de0581       74     1                 os_derive_bip32_with_seed_no_throw
+c0de05f4 c0de05f4       36     2         build/nanox/obj/app/ledger-app/src/main.o:(.text.sha256_hash)
+c0de05f4 c0de05f4        0     1                 $t.10
+c0de05f5 c0de05f5       36     1                 sha256_hash
+c0de062a c0de062a        c     2         build/nanox/obj/app/ledger-app/src/main.o:(.text.OUTLINED_FUNCTION_0)
+c0de062a c0de062a        0     1                 $t.11
+c0de062b c0de062b        c     1                 OUTLINED_FUNCTION_0
+c0de0636 c0de0636       da     2         build/nanox/obj/sdk/io/src/os_io_default_apdu.o:(.text.os_io_handle_default_apdu)
+c0de0636 c0de0636        0     1                 $t.0
+c0de0637 c0de0637       da     1                 os_io_handle_default_apdu
+c0de0710 c0de0710        e     2         build/nanox/obj/sdk/io/src/os_io_default_apdu.o:(.text.OUTLINED_FUNCTION_0)
+c0de0710 c0de0710        0     1                 $t.1
+c0de0711 c0de0711        e     1                 OUTLINED_FUNCTION_0
+c0de0720 c0de0720       14     4         build/nanox/obj/sdk/io/src/os_io_seph_ux.o:(.text.io_seph_ux_init_button)
+c0de0720 c0de0720        0     1                 $t.0
+c0de0721 c0de0721       14     1                 io_seph_ux_init_button
+c0de0730 c0de0730        0     1                 $d.1
+c0de0734 c0de0734       16     2         build/nanox/obj/sdk/io/src/os_io_seph_ux.o:(.text.io_process_itc_ux_event)
+c0de0734 c0de0734        0     1                 $t.2
+c0de0735 c0de0735       16     1                 io_process_itc_ux_event
+c0de074a c0de074a       7c     2         build/nanox/obj/sdk/io/src/os_io_seph_ux.o:(.text.io_seph_ux_display_bagl_element)
+c0de074a c0de074a        0     1                 $t.6
+c0de074b c0de074b       7c     1                 io_seph_ux_display_bagl_element
+c0de07c8 c0de07c8       78     4         build/nanox/obj/sdk/io/src/os_io_seph_ux.o:(.text.io_seproxyhal_button_push)
+c0de07c8 c0de07c8        0     1                 $t.7
+c0de07c9 c0de07c9       78     1                 io_seproxyhal_button_push
+c0de083c c0de083c        0     1                 $d.8
+c0de0840 c0de0840       88     4         build/nanox/obj/sdk/io_legacy/src/os_io_legacy.o:(.text.io_exchange)
+c0de0840 c0de0840        0     1                 $t.11
+c0de0841 c0de0841       88     1                 io_exchange
+c0de08bc c0de08bc        0     1                 $d.12
+c0de08c8 c0de08c8       34     4         build/nanox/obj/sdk/io_legacy/src/os_io_legacy.o:(.text.io_legacy_apdu_tx)
+c0de08c8 c0de08c8        0     1                 $t.13
+c0de08c9 c0de08c9       34     1                 io_legacy_apdu_tx
+c0de08f0 c0de08f0        0     1                 $d.14
+c0de08fc c0de08fc      27c     4         build/nanox/obj/sdk/io_legacy/src/os_io_legacy.o:(.text.io_legacy_apdu_rx)
+c0de08fc c0de08fc        0     1                 $t.15
+c0de08fd c0de08fd      27c     1                 io_legacy_apdu_rx
+c0de0b58 c0de0b58        0     1                 $d.16
+c0de0b78 c0de0b78       40     4         build/nanox/obj/sdk/io_legacy/src/os_io_legacy.o:(.text.io_seproxyhal_init)
+c0de0b78 c0de0b78        0     1                 $t.17
+c0de0b79 c0de0b79       40     1                 io_seproxyhal_init
+c0de0bb0 c0de0bb0        0     1                 $d.18
+c0de0bb8 c0de0bb8        2     2         build/nanox/obj/sdk/io_legacy/src/os_io_legacy.o:(.text.USB_power)
+c0de0bb8 c0de0bb8        0     1                 $t.19
+c0de0bb9 c0de0bb9        2     1                 USB_power
+c0de0bba c0de0bba        8     2         build/nanox/obj/sdk/io_legacy/src/os_io_legacy.o:(.text.OUTLINED_FUNCTION_0)
+c0de0bba c0de0bba        0     1                 $t.21
+c0de0bbb c0de0bbb        8     1                 OUTLINED_FUNCTION_0
+c0de0bc4 c0de0bc4      540     4         build/nanox/obj/sdk/lib_bagl/src/bagl.o:(.text.bagl_draw_with_context)
+c0de0bc4 c0de0bc4        0     1                 $t.1
+c0de0bc5 c0de0bc5      540     1                 bagl_draw_with_context
+c0de0fa0 c0de0fa0        0     1                 $d.2
+c0de0fa4 c0de0fa4        0     1                 $t.3
+c0de10f4 c0de10f4        0     1                 $d.4
+c0de1104 c0de1104       40     4         build/nanox/obj/sdk/lib_bagl/src/bagl.o:(.text.bagl_get_font)
+c0de1104 c0de1104        0     1                 $t.5
+c0de1105 c0de1105       40     1                 bagl_get_font
+c0de113c c0de113c        0     1                 $d.6
+c0de1144 c0de1144       28     2         build/nanox/obj/sdk/lib_bagl/src/bagl.o:(.text.bagl_compute_line_width)
+c0de1144 c0de1144        0     1                 $t.7
+c0de1145 c0de1145       28     1                 bagl_compute_line_width
+c0de116c c0de116c      2b4     4         build/nanox/obj/sdk/lib_bagl/src/bagl.o:(.text.bagl_draw_string)
+c0de116c c0de116c        0     1                 $t.8
+c0de116d c0de116d      2b4     1                 bagl_draw_string
+c0de141c c0de141c        0     1                 $d.9
+c0de1420 c0de1420      312     2         build/nanox/obj/sdk/lib_bagl/src/bagl.o:(.text.bagl_draw_circle_helper)
+c0de1420 c0de1420        0     1                 $t.10
+c0de1421 c0de1421      312     1                 bagl_draw_circle_helper
+c0de1732 c0de1732       52     2         build/nanox/obj/sdk/lib_bagl/src/bagl.o:(.text.bagl_draw_glyph)
+c0de1732 c0de1732        0     1                 $t.11
+c0de1733 c0de1733       52     1                 bagl_draw_glyph
+c0de1784 c0de1784       14     2         build/nanox/obj/sdk/lib_bagl/src/bagl.o:(.text.OUTLINED_FUNCTION_0)
+c0de1784 c0de1784        0     1                 $t.14
+c0de1785 c0de1785       14     1                 OUTLINED_FUNCTION_0
+c0de1798 c0de1798        6     2         build/nanox/obj/sdk/lib_bagl/src/bagl.o:(.text.OUTLINED_FUNCTION_1)
+c0de1798 c0de1798        0     1                 $t.15
+c0de1799 c0de1799        6     1                 OUTLINED_FUNCTION_1
+c0de179e c0de179e        6     2         build/nanox/obj/sdk/lib_bagl/src/bagl.o:(.text.OUTLINED_FUNCTION_2)
+c0de179e c0de179e        0     1                 $t.16
+c0de179f c0de179f        6     1                 OUTLINED_FUNCTION_2
+c0de17a4 c0de17a4        8     2         build/nanox/obj/sdk/lib_bagl/src/bagl.o:(.text.OUTLINED_FUNCTION_3)
+c0de17a4 c0de17a4        0     1                 $t.17
+c0de17a5 c0de17a5        8     1                 OUTLINED_FUNCTION_3
+c0de17ac c0de17ac        6     2         build/nanox/obj/sdk/lib_bagl/src/bagl.o:(.text.OUTLINED_FUNCTION_4)
+c0de17ac c0de17ac        0     1                 $t.18
+c0de17ad c0de17ad        6     1                 OUTLINED_FUNCTION_4
+c0de17b2 c0de17b2        a     2         build/nanox/obj/sdk/lib_bagl/src/bagl.o:(.text.OUTLINED_FUNCTION_5)
+c0de17b2 c0de17b2        0     1                 $t.19
+c0de17b3 c0de17b3        a     1                 OUTLINED_FUNCTION_5
+c0de17bc c0de17bc        e     2         build/nanox/obj/sdk/lib_bagl/src/bagl.o:(.text.OUTLINED_FUNCTION_6)
+c0de17bc c0de17bc        0     1                 $t.20
+c0de17bd c0de17bd        e     1                 OUTLINED_FUNCTION_6
+c0de17ca c0de17ca        e     2         build/nanox/obj/sdk/lib_bagl/src/bagl.o:(.text.OUTLINED_FUNCTION_7)
+c0de17ca c0de17ca        0     1                 $t.21
+c0de17cb c0de17cb        e     1                 OUTLINED_FUNCTION_7
+c0de17d8 c0de17d8        a     2         build/nanox/obj/sdk/lib_bagl/src/bagl.o:(.text.OUTLINED_FUNCTION_8)
+c0de17d8 c0de17d8        0     1                 $t.22
+c0de17d9 c0de17d9        a     1                 OUTLINED_FUNCTION_8
+c0de17e2 c0de17e2        2     2         build/nanox/obj/sdk/lib_standard_app/io.o:(.text.app_ticker_event_callback)
+c0de17e2 c0de17e2        0     1                 $t.1
+c0de17e3 c0de17e3        2     1                 app_ticker_event_callback
+c0de17e4 c0de17e4      370     4         build/nanox/obj/sdk/lib_standard_app/io.o:(.text.io_event)
+c0de17e4 c0de17e4        0     1                 $t.2
+c0de17e5 c0de17e5      370     1                 io_event
+c0de1b48 c0de1b48        0     1                 $d.3
+c0de1b54 c0de1b54       14     2         build/nanox/obj/sdk/lib_standard_app/io.o:(.text.OUTLINED_FUNCTION_0)
+c0de1b54 c0de1b54        0     1                 $t.11
+c0de1b55 c0de1b55       14     1                 OUTLINED_FUNCTION_0
+c0de1b68 c0de1b68       10     2         build/nanox/obj/sdk/lib_standard_app/io.o:(.text.OUTLINED_FUNCTION_1)
+c0de1b68 c0de1b68        0     1                 $t.12
+c0de1b69 c0de1b69       10     1                 OUTLINED_FUNCTION_1
+c0de1b78 c0de1b78       10     2         build/nanox/obj/sdk/lib_standard_app/io.o:(.text.OUTLINED_FUNCTION_2)
+c0de1b78 c0de1b78        0     1                 $t.13
+c0de1b79 c0de1b79       10     1                 OUTLINED_FUNCTION_2
+c0de1b88 c0de1b88        e     2         build/nanox/obj/sdk/lib_standard_app/io.o:(.text.OUTLINED_FUNCTION_3)
+c0de1b88 c0de1b88        0     1                 $t.14
+c0de1b89 c0de1b89        e     1                 OUTLINED_FUNCTION_3
+c0de1b96 c0de1b96        e     2         build/nanox/obj/sdk/lib_standard_app/io.o:(.text.OUTLINED_FUNCTION_4)
+c0de1b96 c0de1b96        0     1                 $t.15
+c0de1b97 c0de1b97        e     1                 OUTLINED_FUNCTION_4
+c0de1ba4 c0de1ba4        a     2         build/nanox/obj/sdk/lib_standard_app/io.o:(.text.OUTLINED_FUNCTION_5)
+c0de1ba4 c0de1ba4        0     1                 $t.16
+c0de1ba5 c0de1ba5        a     1                 OUTLINED_FUNCTION_5
+c0de1bae c0de1bae        6     2         build/nanox/obj/sdk/lib_standard_app/io.o:(.text.OUTLINED_FUNCTION_6)
+c0de1bae c0de1bae        0     1                 $t.17
+c0de1baf c0de1baf        6     1                 OUTLINED_FUNCTION_6
+c0de1bb4 c0de1bb4       1c     4         build/nanox/obj/sdk/lib_standard_app/main.o:(.text.common_app_init)
+c0de1bb4 c0de1bb4        0     1                 $t.1
+c0de1bb5 c0de1bb5       1c     1                 common_app_init
+c0de1bcc c0de1bcc        0     1                 $d.2
+c0de1bd0 c0de1bd0       4e     2         build/nanox/obj/sdk/lib_standard_app/main.o:(.text.standalone_app_main)
+c0de1bd0 c0de1bd0        0     1                 $t.3
+c0de1bd1 c0de1bd1       4e     1                 standalone_app_main
+c0de1c20 c0de1c20       28     4         build/nanox/obj/sdk/lib_ux/src/ux_flow_engine.o:(.text.ux_flow_check_valid)
+c0de1c20 c0de1c20        0     1                 $t.2
+c0de1c21 c0de1c21       28     1                 ux_flow_check_valid
+c0de1c44 c0de1c44        0     1                 $d.3
+c0de1c48 c0de1c48       38     4         build/nanox/obj/sdk/lib_ux/src/ux_flow_engine.o:(.text.ux_flow_get_current)
+c0de1c48 c0de1c48        0     1                 $t.8
+c0de1c49 c0de1c49       38     1                 ux_flow_get_current
+c0de1c7c c0de1c7c        0     1                 $d.9
+c0de1c80 c0de1c80       80     4         build/nanox/obj/sdk/lib_ux/src/ux_flow_engine.o:(.text.ux_flow_engine_init_step)
+c0de1c80 c0de1c80        0     1                 $t.16
+c0de1c81 c0de1c81       80     1                 ux_flow_engine_init_step
+c0de1cf8 c0de1cf8        0     1                 $d.17
+c0de1d00 c0de1d00       84     4         build/nanox/obj/sdk/lib_ux/src/ux_flow_engine.o:(.text.ux_flow_init)
+c0de1d00 c0de1d00        0     1                 $t.20
+c0de1d01 c0de1d01       84     1                 ux_flow_init
+c0de1d80 c0de1d80        0     1                 $d.21
+c0de1d84 c0de1d84       20     4         build/nanox/obj/sdk/lib_ux/src/ux_flow_engine.o:(.text.ux_flow_relayout)
+c0de1d84 c0de1d84        0     1                 $t.32
+c0de1d85 c0de1d85       20     1                 ux_flow_relayout
+c0de1da0 c0de1da0        0     1                 $d.33
+c0de1da4 c0de1da4       18     2         build/nanox/obj/sdk/lib_ux/src/ux_flow_engine.o:(.text.OUTLINED_FUNCTION_0)
+c0de1da4 c0de1da4        0     1                 $t.34
+c0de1da5 c0de1da5       18     1                 OUTLINED_FUNCTION_0
+c0de1dbc c0de1dbc       40     4         build/nanox/obj/sdk/lib_ux/src/ux_stack.o:(.text.ux_stack_redisplay)
+c0de1dbc c0de1dbc        0     1                 $t.6
+c0de1dbd c0de1dbd       40     1                 ux_stack_redisplay
+c0de1df8 c0de1df8        0     1                 $d.7
+c0de1dfc c0de1dfc       40     4         build/nanox/obj/sdk/lib_ux/src/ux_stack.o:(.text.ux_stack_display)
+c0de1dfc c0de1dfc        0     1                 $t.8
+c0de1dfd c0de1dfd       40     1                 ux_stack_display
+c0de1e38 c0de1e38        0     1                 $d.9
+c0de1e3c c0de1e3c       34     4         build/nanox/obj/sdk/lib_ux/src/ux_stack.o:(.text.ux_stack_display_element_callback)
+c0de1e3c c0de1e3c        0     1                 $t.16
+c0de1e3d c0de1e3d       34     1                 ux_stack_display_element_callback
+c0de1e6c c0de1e6c        0     1                 $d.17
+c0de1e70 c0de1e70       a0     4         build/nanox/obj/sdk/lib_ux/src/ux_stack.o:(.text.ux_stack_display_elements)
+c0de1e70 c0de1e70        0     1                 $t.18
+c0de1e71 c0de1e71       a0     1                 ux_stack_display_elements
+c0de1f0c c0de1f0c        0     1                 $d.19
+c0de1f10 c0de1f10        a     1         build/nanox/obj/sdk/src/cx_stubs.o:(.text.cx_ecfp_generate_pair_no_throw)
+c0de1f10 c0de1f10        0     1                 $t.50
+c0de1f11 c0de1f11        0     1                 cx_ecfp_generate_pair_no_throw
+c0de1f1a c0de1f1a        a     1         build/nanox/obj/sdk/src/cx_stubs.o:(.text.cx_ecfp_init_private_key_no_throw)
+c0de1f1a c0de1f1a        0     1                 $t.51
+c0de1f1b c0de1f1b        0     1                 cx_ecfp_init_private_key_no_throw
+c0de1f24 c0de1f24        a     1         build/nanox/obj/sdk/src/cx_stubs.o:(.text.cx_eddsa_sign_no_throw)
+c0de1f24 c0de1f24        0     1                 $t.58
+c0de1f25 c0de1f25        0     1                 cx_eddsa_sign_no_throw
+c0de1f2e c0de1f2e        a     1         build/nanox/obj/sdk/src/cx_stubs.o:(.text.cx_hash_no_throw)
+c0de1f2e c0de1f2e        0     1                 $t.68
+c0de1f2f c0de1f2f        0     1                 cx_hash_no_throw
+c0de1f38 c0de1f38        a     1         build/nanox/obj/sdk/src/cx_stubs.o:(.text.cx_sha256_init_no_throw)
+c0de1f38 c0de1f38        0     1                 $t.113
+c0de1f39 c0de1f39        0     1                 cx_sha256_init_no_throw
+c0de1f44 c0de1f44       10     4         build/nanox/obj/sdk/src/cx_stubs.o:(.text.cx_aes_siv_reset)
+c0de1f44 c0de1f44        0     1                 $t.144
+c0de1f45 c0de1f45        0     1                 cx_aes_siv_reset
+c0de1f4d c0de1f4d        0     1                 cx_trampoline_helper
+c0de1f50 c0de1f50        0     1                 $d.145
+c0de1f54 c0de1f54        6     2         build/nanox/obj/sdk/src/os.o:(.text.os_boot)
+c0de1f54 c0de1f54        0     1                 $t.0
+c0de1f55 c0de1f55        6     1                 os_boot
+c0de1f5a c0de1f5a        c     2         build/nanox/obj/sdk/src/os.o:(.text.os_longjmp)
+c0de1f5a c0de1f5a        0     1                 $t.3
+c0de1f5b c0de1f5b        c     1                 os_longjmp
+c0de1f68 c0de1f68       3c     4         build/nanox/obj/sdk/src/pic.o:(.text.pic)
+c0de1f68 c0de1f68        0     1                 $t.0
+c0de1f69 c0de1f69       2a     1                 pic
+c0de1f94 c0de1f94        0     1                 $d.2
+c0de1fa4 c0de1fa4       10     4         build/nanox/obj/sdk/src/pic.o:(.text.pic_internal)
+c0de1fa4 c0de1fa4        0     1                 $t.1
+c0de1fa5 c0de1fa5        c     1                 pic_internal
+c0de1fb0 c0de1fb0        0     1                 $d.3
+c0de1fb4 c0de1fb4        e     4         build/nanox/obj/sdk/src/svc_call.o:(.text)
+c0de1fb4 c0de1fb4        0     1                 $t.0
+c0de1fb5 c0de1fb5        0     1                 SVC_Call
+c0de1fbc c0de1fbc        0     1                 exception
+c0de1fc2 c0de1fc2       12     2         build/nanox/obj/sdk/src/syscalls.o:(.text.os_perso_isonboarded)
+c0de1fc2 c0de1fc2        0     1                 $t.171
+c0de1fc3 c0de1fc3       12     1                 os_perso_isonboarded
+c0de1fd4 c0de1fd4       28     4         build/nanox/obj/sdk/src/syscalls.o:(.text.os_perso_derive_node_with_seed_key)
+c0de1fd4 c0de1fd4        0     1                 $t.176
+c0de1fd5 c0de1fd5       28     1                 os_perso_derive_node_with_seed_key
+c0de1ff8 c0de1ff8        0     1                 $d.177
+c0de1ffc c0de1ffc       20     4         build/nanox/obj/sdk/src/syscalls.o:(.text.os_pki_load_certificate)
+c0de1ffc c0de1ffc        0     1                 $t.184
+c0de1ffd c0de1ffd       20     1                 os_pki_load_certificate
+c0de2018 c0de2018        0     1                 $d.185
+c0de201c c0de201c       12     2         build/nanox/obj/sdk/src/syscalls.o:(.text.os_perso_is_pin_set)
+c0de201c c0de201c        0     1                 $t.206
+c0de201d c0de201d       12     1                 os_perso_is_pin_set
+c0de202e c0de202e       12     2         build/nanox/obj/sdk/src/syscalls.o:(.text.os_global_pin_is_validated)
+c0de202e c0de202e        0     1                 $t.207
+c0de202f c0de202f       12     1                 os_global_pin_is_validated
+c0de2040 c0de2040       14     4         build/nanox/obj/sdk/src/syscalls.o:(.text.os_ux)
+c0de2040 c0de2040        0     1                 $t.212
+c0de2041 c0de2041       14     1                 os_ux
+c0de2050 c0de2050        0     1                 $d.213
+c0de2054 c0de2054       10     2         build/nanox/obj/sdk/src/syscalls.o:(.text.os_flags)
+c0de2054 c0de2054        0     1                 $t.217
+c0de2055 c0de2055       10     1                 os_flags
+c0de2064 c0de2064       18     4         build/nanox/obj/sdk/src/syscalls.o:(.text.os_registry_get_current_app_tag)
+c0de2064 c0de2064        0     1                 $t.233
+c0de2065 c0de2065       18     1                 os_registry_get_current_app_tag
+c0de2078 c0de2078        0     1                 $d.234
+c0de207c c0de207c       14     4         build/nanox/obj/sdk/src/syscalls.o:(.text.os_sched_exit)
+c0de207c c0de207c        0     1                 $t.235
+c0de207d c0de207d       14     1                 os_sched_exit
+c0de208c c0de208c        0     1                 $d.236
+c0de2090 c0de2090       14     4         build/nanox/obj/sdk/src/syscalls.o:(.text.os_io_init)
+c0de2090 c0de2090        0     1                 $t.247
+c0de2091 c0de2091       14     1                 os_io_init
+c0de20a0 c0de20a0        0     1                 $d.248
+c0de20a4 c0de20a4       14     4         build/nanox/obj/sdk/src/syscalls.o:(.text.os_io_start)
+c0de20a4 c0de20a4        0     1                 $t.249
+c0de20a5 c0de20a5       14     1                 os_io_start
+c0de20b4 c0de20b4        0     1                 $d.250
+c0de20b8 c0de20b8       18     4         build/nanox/obj/sdk/src/syscalls.o:(.text.os_io_tx_cmd)
+c0de20b8 c0de20b8        0     1                 $t.253
+c0de20b9 c0de20b9       18     1                 os_io_tx_cmd
+c0de20cc c0de20cc        0     1                 $d.254
+c0de20d0 c0de20d0       18     4         build/nanox/obj/sdk/src/syscalls.o:(.text.os_io_rx_evt)
+c0de20d0 c0de20d0        0     1                 $t.255
+c0de20d1 c0de20d1       18     1                 os_io_rx_evt
+c0de20e4 c0de20e4        0     1                 $d.256
+c0de20e8 c0de20e8       10     2         build/nanox/obj/sdk/src/syscalls.o:(.text.try_context_get)
+c0de20e8 c0de20e8        0     1                 $t.261
+c0de20e9 c0de20e9       10     1                 try_context_get
+c0de20f8 c0de20f8       14     4         build/nanox/obj/sdk/src/syscalls.o:(.text.try_context_set)
+c0de20f8 c0de20f8        0     1                 $t.262
+c0de20f9 c0de20f9       14     1                 try_context_set
+c0de2108 c0de2108        0     1                 $d.263
+c0de210c c0de210c       18     4         build/nanox/obj/sdk/src/syscalls.o:(.text.os_sched_last_status)
+c0de210c c0de210c        0     1                 $t.264
+c0de210d c0de210d       18     1                 os_sched_last_status
+c0de2120 c0de2120        0     1                 $d.265
+c0de2124 c0de2124       10     2         build/nanox/obj/sdk/src/syscalls.o:(.text.screen_update)
+c0de2124 c0de2124        0     1                 $t.278
+c0de2125 c0de2125       10     1                 screen_update
+c0de2134 c0de2134       30     4         build/nanox/obj/sdk/src/syscalls.o:(.text.bagl_hal_draw_bitmap_within_rect)
+c0de2134 c0de2134        0     1                 $t.281
+c0de2135 c0de2135       30     1                 bagl_hal_draw_bitmap_within_rect
+c0de2160 c0de2160        0     1                 $d.282
+c0de2164 c0de2164       20     4         build/nanox/obj/sdk/src/syscalls.o:(.text.bagl_hal_draw_rect)
+c0de2164 c0de2164        0     1                 $t.283
+c0de2165 c0de2165       20     1                 bagl_hal_draw_rect
+c0de2180 c0de2180        0     1                 $d.284
+c0de2184 c0de2184        8     2         build/nanox/obj/sdk/src/syscalls.o:(.text.OUTLINED_FUNCTION_0)
+c0de2184 c0de2184        0     1                 $t.286
+c0de2185 c0de2185        8     1                 OUTLINED_FUNCTION_0
+c0de218c c0de218c        4     4         /home/blue/projects/webcli-dev/ledger-secure-sdk/arch/st33/lib/libclang_rt.builtins.a(aeabi_memcpy.S.o):(.text)
+c0de218c c0de218c        0     1                 $t.0
+c0de218d c0de218d        4     1                 __aeabi_memcpy
+c0de218d c0de218d        4     1                 __aeabi_memcpy4
+c0de218d c0de218d        4     1                 __aeabi_memcpy8
+c0de2190 c0de2190       14     4         /home/blue/projects/webcli-dev/ledger-secure-sdk/arch/st33/lib/libclang_rt.builtins.a(aeabi_memset.S.o):(.text)
+c0de2190 c0de2190        0     1                 $t.0
+c0de2191 c0de2191        a     1                 __aeabi_memset
+c0de2191 c0de2191        a     1                 __aeabi_memset4
+c0de2191 c0de2191        a     1                 __aeabi_memset8
+c0de219d c0de219d        8     1                 __aeabi_memclr
+c0de219d c0de219d        8     1                 __aeabi_memclr4
+c0de219d c0de219d        8     1                 __aeabi_memclr8
+c0de21a4 c0de21a4        4     2         /home/blue/projects/webcli-dev/ledger-secure-sdk/arch/st33/lib/libc.a(lib_a-explicit_bzero.o):(.text.explicit_bzero)
+c0de21a4 c0de21a4        0     1                 $t
+c0de21a5 c0de21a5        4     1                 explicit_bzero
+c0de21a8 c0de21a8        8     2         /home/blue/projects/webcli-dev/ledger-secure-sdk/arch/st33/lib/libc.a(lib_a-bzero.o):(.text.bzero)
+c0de21a8 c0de21a8        0     1                 $t
+c0de21a9 c0de21a9        8     1                 bzero
+c0de21b0 c0de21b0       1c     2         /home/blue/projects/webcli-dev/ledger-secure-sdk/arch/st33/lib/libc.a(lib_a-memcpy-stub.o):(.text.memcpy)
+c0de21b0 c0de21b0        0     1                 $t
+c0de21b1 c0de21b1       1c     1                 memcpy
+c0de21cc c0de21cc       10     2         /home/blue/projects/webcli-dev/ledger-secure-sdk/arch/st33/lib/libc.a(lib_a-memset.o):(.text.memset)
+c0de21cc c0de21cc        0     1                 $t
+c0de21cd c0de21cd       10     1                 memset
+c0de21dc c0de21dc       1c     4         /home/blue/projects/webcli-dev/ledger-secure-sdk/arch/st33/lib/libc.a(lib_a-setjmp.o):(.text)
+c0de21dc c0de21dc        0     1                 $t
+c0de21dd c0de21dd        c     1                 setjmp
+c0de21e9 c0de21e9        e     1                 longjmp
+c0de21f8 c0de21f8       10     2         /home/blue/projects/webcli-dev/ledger-secure-sdk/arch/st33/lib/libc.a(lib_a-strlen.o):(.text)
+c0de21f8 c0de21f8        0     1                 $t
+c0de21f9 c0de21f9       10     1                 strlen
+c0de2208 c0de2208        0     1         _ecode = .
+c0de2208 c0de2208       3f     1         <internal>:(.rodata.str1.1)
+c0de2248 c0de2248       14     4         build/nanox/obj/app/ledger-app/src/main.o:(.rodata..L__const.handle_sign_msg.defpath)
+c0de2248 c0de2248       14     1                 .L__const.handle_sign_msg.defpath
+c0de225c c0de225c      1ec     1         build/nanox/obj/sdk/lib_bagl/src/bagl_fonts.o:(.rodata.bitmapOPEN_SANS_EXTRABOLD_11PX)
+c0de225c c0de225c      1ec     1                 bitmapOPEN_SANS_EXTRABOLD_11PX
+c0de2448 c0de2448      17c     4         build/nanox/obj/sdk/lib_bagl/src/bagl_fonts.o:(.rodata.charactersOPEN_SANS_EXTRABOLD_11PX)
+c0de2448 c0de2448      17c     1                 charactersOPEN_SANS_EXTRABOLD_11PX
+c0de25c4 c0de25c4       10     4         build/nanox/obj/sdk/lib_bagl/src/bagl_fonts.o:(.rodata.fontOPEN_SANS_EXTRABOLD_11PX)
+c0de25c4 c0de25c4       10     1                 fontOPEN_SANS_EXTRABOLD_11PX
+c0de25d4 c0de25d4      353     1         build/nanox/obj/sdk/lib_bagl/src/bagl_fonts.o:(.rodata.bitmapOPEN_SANS_LIGHT_16PX)
+c0de25d4 c0de25d4      353     1                 bitmapOPEN_SANS_LIGHT_16PX
+c0de2928 c0de2928      17c     4         build/nanox/obj/sdk/lib_bagl/src/bagl_fonts.o:(.rodata.charactersOPEN_SANS_LIGHT_16PX)
+c0de2928 c0de2928      17c     1                 charactersOPEN_SANS_LIGHT_16PX
+c0de2aa4 c0de2aa4       10     4         build/nanox/obj/sdk/lib_bagl/src/bagl_fonts.o:(.rodata.fontOPEN_SANS_LIGHT_16PX)
+c0de2aa4 c0de2aa4       10     1                 fontOPEN_SANS_LIGHT_16PX
+c0de2ab4 c0de2ab4      18f     1         build/nanox/obj/sdk/lib_bagl/src/bagl_fonts.o:(.rodata.bitmapOPEN_SANS_REGULAR_11PX)
+c0de2ab4 c0de2ab4      18f     1                 bitmapOPEN_SANS_REGULAR_11PX
+c0de2c44 c0de2c44      17c     4         build/nanox/obj/sdk/lib_bagl/src/bagl_fonts.o:(.rodata.charactersOPEN_SANS_REGULAR_11PX)
+c0de2c44 c0de2c44      17c     1                 charactersOPEN_SANS_REGULAR_11PX
+c0de2dc0 c0de2dc0       10     4         build/nanox/obj/sdk/lib_bagl/src/bagl_fonts.o:(.rodata.fontOPEN_SANS_REGULAR_11PX)
+c0de2dc0 c0de2dc0       10     1                 fontOPEN_SANS_REGULAR_11PX
+c0de2dd0 c0de2dd0        c     4         build/nanox/obj/sdk/lib_bagl/src/bagl_fonts.o:(.rodata.C_bagl_fonts)
+c0de2dd0 c0de2dd0        c     1                 C_bagl_fonts
+c0de2ddc c0de2ddc        4     4         build/nanox/obj/sdk/lib_bagl/src/bagl_fonts.o:(.rodata.C_bagl_fonts_count)
+c0de2ddc c0de2ddc        4     1                 C_bagl_fonts_count
+c0de2de0 c0de2de0        0     1         . = ALIGN ( 4 )
+c0de2de0 c0de2de0        0     1         _etext = .
+c0de2de0 c0de2de0       20     1         . = ALIGN ( PAGE_SIZE )
+c0de2e00 c0de2e00        0     1         _nvram_data = .
+c0de2e00 c0de2e00        0     1         . = ALIGN ( PAGE_SIZE )
+c0de2e00 c0de2e00        0     1         _envram_data = .
+c0de2e00 c0de2e00        0     1         _install_parameters = .
+c0de2e00 c0de2e00       11     1         build/nanox/obj/sdk/src/app_metadata.o:(.install_parameters)
+c0de2e00 c0de2e00       11     1                 install_parameters
+c0de2e11 c0de2e11        0     1         _einstall_parameters = .
+c0de2e11 c0de2e11        0     1         _nvram_end = .
+d0000000 d0000000        0     1 .data
+d0000000 d0000000        0     1         . = ALIGN ( 4 )
+d0000000 d0000000        0     1         _data = .
+d0000000 d0000000        0     1         _edata = .
+d0000000 d0000000        0     1 
+da7a0000 da7a0000     7000     4 .bss
+da7a0000 da7a0000        0     1         _bss = .
+da7a0000 da7a0000        0     1         __stack_chk_guard = .
+da7a0000 da7a0000        4     1         . += 4
+da7a0004 da7a0004       7c     4         build/nanox/obj/app/ledger-app/src/main.o:(.bss.G_app_state)
+da7a0004 da7a0004       7c     1                 G_app_state
+da7a0080 da7a0080      111     1         build/nanox/obj/sdk/io/src/os_io.o:(.bss.G_io_tx_buffer)
+da7a0080 da7a0080      111     1                 G_io_tx_buffer
+da7a0191 da7a0191      111     1         build/nanox/obj/sdk/io/src/os_io.o:(.bss.G_io_rx_buffer)
+da7a0191 da7a0191      111     1                 G_io_rx_buffer
+da7a02a4 da7a02a4        8     4         build/nanox/obj/sdk/io/src/os_io_seph_ux.o:(.bss.G_ux_os)
+da7a02a4 da7a02a4        8     1                 G_ux_os
+da7a02ac da7a02ac        8     2         build/nanox/obj/sdk/io_legacy/src/os_io_legacy.o:(.bss.G_io_app)
+da7a02ac da7a02ac        8     1                 G_io_app
+da7a02b4 da7a02b4        2     1         build/nanox/obj/sdk/io_legacy/src/os_io_legacy.o:(.bss..L_MergedGlobals)
+da7a02b4 da7a02b4        2     1                 .L_MergedGlobals
+da7a02b4 da7a02b4        1     1                 need_to_start_io
+da7a02b5 da7a02b5        1     1                 io_os_legacy_apdu_type
+da7a02b6 da7a02b6      110     1         build/nanox/obj/sdk/lib_standard_app/io.o:(.bss.G_io_seproxyhal_spi_buffer)
+da7a02b6 da7a02b6      110     1                 G_io_seproxyhal_spi_buffer
+da7a03c8 da7a03c8      110     4         build/nanox/obj/sdk/lib_standard_app/main.o:(.bss.G_ux)
+da7a03c8 da7a03c8      110     1                 G_ux
+da7a04d8 da7a04d8        c     4         build/nanox/obj/sdk/lib_standard_app/main.o:(.bss.G_ux_params)
+da7a04d8 da7a04d8        c     1                 G_ux_params
+da7a04e4 da7a04e4        1     1         build/nanox/obj/sdk/lib_u2f_legacy/src/u2f_legacy.o:(.bss.G_io_u2f)
+da7a04e4 da7a04e4        1     1                 G_io_u2f
+da7a04e5 da7a04e5        0     1         _ebss = .
+da7a04e5 da7a04e5        3     1         . = ALIGN ( 4 )
+da7a04e8 da7a04e8        0     1         app_stack_canary = .
+da7a04e8 da7a04e8        4     1         . += 4
+da7a04ec da7a04ec        0     1         _stack = .
+da7a04ec da7a04ec     6b14     1         . = END_STACK
+da7a7000 da7a7000        0     1         _estack = .
+da7a7000 da7a7000        0     1 
+       0        0       84     1 .comment
+       0        0       84     1         <internal>:(.comment)
+       0        0        5     1 ledger.target
+       0        0        5     1         build/nanox/obj/sdk/src/app_metadata.o:(ledger.target)
+       0        0        5     1                 target
+       0        0        c     1 ledger.target_name
+       0        0        c     1         build/nanox/obj/sdk/src/app_metadata.o:(ledger.target_name)
+       0        0        c     1                 target_name
+       0        0        a     1 ledger.target_id
+       0        0        a     1         build/nanox/obj/sdk/src/app_metadata.o:(ledger.target_id)
+       0        0        a     1                 target_id
+       0        0        5     1 ledger.app_name
+       0        0        5     1         build/nanox/obj/sdk/src/app_metadata.o:(ledger.app_name)
+       0        0        5     1                 app_name
+       0        0        5     1 ledger.app_version
+       0        0        5     1         build/nanox/obj/sdk/src/app_metadata.o:(ledger.app_version)
+       0        0        5     1                 app_version
+       0        0        2     1 ledger.api_level
+       0        0        2     1         build/nanox/obj/sdk/src/app_metadata.o:(ledger.api_level)
+       0        0        2     1                 api_level
+       0        0       11     1 ledger.sdk_name
+       0        0       11     1         build/nanox/obj/sdk/src/app_metadata.o:(ledger.sdk_name)
+       0        0       11     1                 sdk_name
+       0        0        4     1 ledger.sdk_version
+       0        0        4     1         build/nanox/obj/sdk/src/app_metadata.o:(ledger.sdk_version)
+       0        0        4     1                 sdk_version
+       0        0       28     1 ledger.sdk_hash
+       0        0       28     1         build/nanox/obj/sdk/src/app_metadata.o:(ledger.sdk_hash)
+       0        0       28     1                 sdk_hash
+       0        0        4     1 ledger.sdk_graphics
+       0        0        4     1         build/nanox/obj/sdk/src/app_metadata.o:(ledger.sdk_graphics)
+       0        0        4     1                 sdk_graphics
+       0        0        3     1 ledger.app_flags
+       0        0        3     1         build/nanox/obj/sdk/src/app_metadata.o:(ledger.app_flags)
+       0        0        3     1                 app_flags
+da7a7000 da7a7000        0     1 PROVIDE ( _nvram = ABSOLUTE ( _nvram_start ) )
+da7a7000 da7a7000        0     1 PROVIDE ( _envram = ABSOLUTE ( _nvram_end ) )
+       0        0       43     1 .ARM.attributes
+       0        0       43     1         build/nanox/gen_src/glyphs.o:(.ARM.attributes)
+       0        0     17b0     4 .symtab
+       0        0     17b0     4         <internal>:(.symtab)
+       0        0      103     1 .shstrtab
+       0        0      103     1         <internal>:(.shstrtab)
+       0        0     1207     1 .strtab
+       0        0     1207     1         <internal>:(.strtab)

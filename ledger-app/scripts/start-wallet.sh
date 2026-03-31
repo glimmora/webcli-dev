@@ -14,7 +14,7 @@ NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$(dirname "$SCRIPT_DIR")"
-WEBCLI_DIR="$(dirname "$APP_DIR")"
+PROJECT_DIR="$(dirname "$APP_DIR")"
 
 echo ""
 echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
@@ -23,9 +23,9 @@ echo -e "${BLUE}╚════════════════════�
 echo ""
 
 # Check if octra_wallet exists
-if [ ! -f "$WEBCLI_DIR/octra_wallet" ]; then
+if [ ! -f "$PROJECT_DIR/octra_wallet" ]; then
     echo -e "${YELLOW}Building web wallet...${NC}"
-    cd "$WEBCLI_DIR"
+    cd "$PROJECT_DIR"
     make
 fi
 
@@ -33,14 +33,21 @@ echo -e "${GREEN}✓ Web wallet ready${NC}"
 echo ""
 echo -e "${BLUE}Starting server on http://127.0.0.1:8420${NC}"
 echo ""
-echo -e "${YELLOW}To use with Ledger:${NC}"
-echo "  1. Connect your Ledger Nano S/X via USB"
+echo -e "${YELLOW}To use with real Ledger device:${NC}"
+echo "  1. Connect your Ledger Nano S Plus/X via USB"
 echo "  2. Unlock with PIN"
 echo "  3. Open http://127.0.0.1:8420 in Chrome/Edge"
 echo "  4. Click 'Connect Ledger'"
 echo ""
+echo -e "${YELLOW}To test with Speculos emulator:${NC}"
+echo "  1. In another terminal, run:"
+echo "     speculos --display headless -m nanox -a 25 --apdu-port 9999 \\"
+echo "       $APP_DIR/dist/nanox/app.elf"
+echo "  2. Open http://127.0.0.1:8420 in Chrome/Edge"
+echo "  3. The webcli will connect via the Ledger JavaScript transport"
+echo ""
 echo -e "${YELLOW}Press Ctrl+C to stop${NC}"
 echo ""
 
-cd "$WEBCLI_DIR"
+cd "$PROJECT_DIR"
 ./octra_wallet 8420

@@ -1,0 +1,36 @@
+build/nanos2/obj/sdk/lib_ux/src/ux_layout_nnnn.o: \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/lib_ux/src/ux_layout_nnnn.c \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/ux.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/lib_ux/include/ux_bagl.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/target/nanos2/include/bolos_target.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/lib_cxng/include/lcx_ecfp.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/lib_cxng/include/lcx_wrappers.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/exceptions.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/appflags.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/decorators.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/errors.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/status_words.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/os_helpers.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/lib_cxng/include/lcx_hash.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/cx_errors.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/ledger_assert.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/ledger_assert_internals.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/os_print.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/app_config.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/lib_cxng/include/lcx_common.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/ox_ec.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/ox_bn.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/os_math.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/os_ux.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/os_types.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/os_utils.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/arch.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/os_ux_id.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/os_task.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/os_screen.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/lib_ux/include/ux_layouts.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/lib_bagl/include/bagl.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/lib_ux/include/ux_layout_paging_compute.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/lib_ux/include/ux_flow_engine.h \
+  /home/blue/projects/webcli-dev/ledger-secure-sdk/include/os_seed.h \
+  build/nanos2/gen_src/glyphs.h

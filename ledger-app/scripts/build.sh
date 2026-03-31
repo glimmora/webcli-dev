@@ -1,28 +1,34 @@
 #!/bin/bash
 # =============================================================================
-# Octra Wallet Ledger App - Autonomous Build Script
-# Automatically builds the Ledger app for Nano S, Nano X, or Stax
+# Octra Wallet Ledger App - Build Script
+# Builds the Ledger app for Nano S Plus or Nano X using local SDK
 # Copyright 2025-2026 Octra Labs
 # =============================================================================
 
 set -e
 
-# Colors for output
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# Script directory
+# Directories
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$(dirname "$SCRIPT_DIR")"
+PROJECT_DIR="$(dirname "$APP_DIR")"
+TOOLS_DIR="$HOME/tools"
+SDK_DIR="$PROJECT_DIR/ledger-secure-sdk"
+ARM_GCC_DIR="$TOOLS_DIR/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi"
 
 # Default target
-TARGET="${1:-nanos}"
+TARGET="${1:-nanox}"
+API_LEVEL="${API_LEVEL:-25}"
 
-# Docker command (will be set to sudo if needed)
-DOCKER_CMD="docker"
+# ARM GCC URL
+ARM_GCC_URL="https://developer.arm.com/-/media/Files/downloads/gnu/13.3.rel1/binrel/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi.tar.xz"
+SDK_REPO="https://github.com/LedgerHQ/ledger-secure-sdk.git"
 
 # =============================================================================
 # Helper Functions
@@ -36,183 +42,134 @@ print_header() {
     echo ""
 }
 
-print_status() { echo -e "${GREEN}✓${NC} $1"; }
+print_status()  { echo -e "${GREEN}✓${NC} $1"; }
 print_warning() { echo -e "${YELLOW}⚠${NC} $1"; }
-print_error() { echo -e "${RED}✗${NC} $1"; }
-print_info() { echo -e "${BLUE}ℹ${NC} $1"; }
+print_error()   { echo -e "${RED}✗${NC} $1"; }
+print_info()    { echo -e "${BLUE}ℹ${NC} $1"; }
 
-check_docker() {
-    if ! command -v docker &> /dev/null; then
-        print_error "Docker is not installed. Please install Docker first."
-        print_info "Run: sudo ./scripts/setup-udev.sh to install all dependencies"
-        exit 1
-    fi
-
-    # Check if Docker daemon is running (try without sudo first, then with sudo)
-    if ! docker ps &> /dev/null; then
-        if sudo docker ps &> /dev/null 2>&1; then
-            # Docker requires sudo, update the script to use sudo
-            DOCKER_CMD="sudo docker"
-            print_warning "Docker requires sudo privileges"
-        else
-            print_error "Docker daemon is not running. Please start Docker."
-            print_info "Run: sudo systemctl start docker"
-            print_info "Or run: sudo ./scripts/setup-udev.sh to setup and start Docker"
-            exit 1
-        fi
-    else
-        print_status "Docker is available"
-    fi
-}
-
-check_target() {
+get_device_name() {
     case "$TARGET" in
-        nanos|nano-s|nanos2|nanox|nano-x|stax)
-            print_status "Target device: $TARGET"
-            ;;
-        *)
-            print_error "Invalid target: $TARGET"
-            echo "Valid targets: nanos, nanos2, nanox, stax"
-            exit 1
-            ;;
-    esac
-}
-
-get_sdk_path() {
-    case "$TARGET" in
-        nanos|nano-s) echo "/opt/nanos-secure-sdk" ;;
-        nanos2) echo "/opt/nanosplus-secure-sdk" ;;
-        nanox|nano-x) echo "/opt/nanox-secure-sdk" ;;
-        stax) echo "/opt/stax-secure-sdk" ;;
+        nanox|nano-x)  echo "Nano X" ;;
+        nanos2|nanosp) echo "Nano S Plus" ;;
+        *)             echo "Unknown ($TARGET)" ;;
     esac
 }
 
 get_size_limit() {
     case "$TARGET" in
-        nanos|nano-s|nanos2) echo "184320" ;;
-        nanox|nano-x) echo "409600" ;;
-        stax) echo "1572864" ;;
-    esac
-}
-
-get_device_name() {
-    case "$TARGET" in
-        nanos|nano-s) echo "Nano S" ;;
-        nanos2) echo "Nano S Plus" ;;
-        nanox|nano-x) echo "Nano X" ;;
-        stax) echo "Stax" ;;
+        nanox|nano-x)  echo "409600" ;;
+        nanos2|nanosp) echo "184320" ;;
+        *)             echo "409600" ;;
     esac
 }
 
 # =============================================================================
-# Main Build Function
+# Setup
+# =============================================================================
+
+setup_environment() {
+    # Install Python dependencies
+    if ! python3 -c "import speculos" 2>/dev/null; then
+        print_info "Installing speculos..."
+        pip3 install --break-system-packages --quiet speculos 2>/dev/null || \
+        pip3 install --quiet speculos 2>/dev/null || true
+    fi
+    if ! python3 -c "import ledgerblue" 2>/dev/null; then
+        print_info "Installing ledgerblue..."
+        pip3 install --break-system-packages --quiet ledgerblue 2>/dev/null || \
+        pip3 install --quiet ledgerblue 2>/dev/null || true
+    fi
+
+    # Install ARM GCC if missing
+    if [ ! -f "$ARM_GCC_DIR/bin/arm-none-eabi-gcc" ]; then
+        print_info "Installing ARM GCC toolchain..."
+        mkdir -p "$TOOLS_DIR"
+        curl -sL "$ARM_GCC_URL" -o "$TOOLS_DIR/arm-gnu-toolchain.tar.xz"
+        tar xf "$TOOLS_DIR/arm-gnu-toolchain.tar.xz" -C "$TOOLS_DIR"
+        rm -f "$TOOLS_DIR/arm-gnu-toolchain.tar.xz"
+        print_status "ARM GCC toolchain installed"
+    fi
+
+    # Clone SDK if missing
+    if [ ! -f "$SDK_DIR/Makefile.standard_app" ]; then
+        print_info "Cloning Ledger Secure SDK..."
+        git clone --depth 1 "$SDK_REPO" "$SDK_DIR"
+        print_status "Ledger SDK cloned"
+    fi
+}
+
+# =============================================================================
+# Build
 # =============================================================================
 
 build_app() {
-    local sdk_path=$(get_sdk_path)
     local device_name=$(get_device_name)
     local size_limit=$(get_size_limit)
 
     print_header
     echo -e "Building for: ${GREEN}$device_name${NC}"
-    echo -e "SDK Path:   ${YELLOW}$sdk_path${NC}"
-    echo -e "Size Limit: ${YELLOW}$size_limit bytes${NC}"
+    echo -e "SDK Path:   ${YELLOW}$SDK_DIR${NC}"
+    echo -e "API Level:  ${YELLOW}$API_LEVEL${NC}"
     echo ""
 
-    # Clean previous build (use sudo if Docker requires it)
-    print_status "Cleaning previous build..."
+    # Setup environment
+    setup_environment
+
+    # Set environment
+    export PATH="$ARM_GCC_DIR/bin:$PATH"
+    export BOLOS_SDK="$SDK_DIR"
+    export TARGET="$TARGET"
+
+    # Clean and build
     cd "$APP_DIR"
-    if [ "$DOCKER_CMD" = "sudo docker" ]; then
-        sudo rm -rf build/
-    else
-        rm -rf build/
-    fi
+    make clean >/dev/null 2>&1
 
-    # Pull Docker image if not present
-    print_status "Checking Docker image..."
-    if ! $DOCKER_CMD images | grep -q ledger-app-builder-lite; then
-        echo "Pulling Ledger app builder image..."
-        $DOCKER_CMD pull ghcr.io/ledgerhq/ledger-app-builder/ledger-app-builder-lite:latest
-    fi
-    print_status "Docker image ready"
-
-    # Build with Docker
-    echo ""
     print_status "Building application..."
     echo ""
 
-    $DOCKER_CMD run --rm \
-        -e BOLOS_SDK="$sdk_path" \
-        -v "$APP_DIR":/app \
-        -w /app \
-        ghcr.io/ledgerhq/ledger-app-builder/ledger-app-builder-lite:latest \
-        make 2>&1 | tee /tmp/build.log
+    if make API_LEVEL=$API_LEVEL 2>&1; then
+        local hex_file="bin/app.hex"
+        local elf_file="bin/app.elf"
 
-    # Check if build produced hex file (Makefile.standard_app outputs to bin/ subdirectory)
-    local hex_file="build/${TARGET}/bin/app.hex"
-    if [ ! -f "$hex_file" ]; then
-        hex_file="build/${TARGET}/app.hex"
-    fi
-    if [ -f "$hex_file" ]; then
-        echo ""
-        print_status "Build successful!"
-
-        # Check file size
-        local size=$(stat -c%s "$hex_file" 2>/dev/null || stat -f%z "$hex_file")
-        echo ""
-        echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
-        echo -e "${GREEN}  BUILD COMPLETE${NC}"
-        echo -e "${BLUE}╚════════════════════════════════════════╝${NC}"
-        echo ""
-        echo "  Output:  $hex_file"
-        echo "  Size:    $size bytes"
-        echo "  Limit:   $size_limit bytes"
-
-        if [ "$size" -gt "$size_limit" ]; then
+        if [ -f "$hex_file" ]; then
+            local size=$(stat -c%s "$hex_file" 2>/dev/null || stat -f%z "$hex_file")
             echo ""
-            print_error "Size exceeds limit!"
-            exit 1
+            echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
+            echo -e "${GREEN}  BUILD COMPLETE${NC}"
+            echo -e "${GREEN}╚════════════════════════════════════════╝${NC}"
+            echo ""
+            echo "  Target:  $device_name"
+            echo "  Output:  $hex_file"
+            echo "  ELF:     $elf_file"
+            echo "  Size:    $size bytes"
+            echo "  Limit:   $size_limit bytes"
+
+            if [ "$size" -gt "$size_limit" ]; then
+                echo ""
+                print_error "Size exceeds limit!"
+                exit 1
+            else
+                echo ""
+                print_status "Size within limit ✓"
+            fi
+
+            # Save to dist
+            mkdir -p "dist/$TARGET"
+            cp bin/app.elf "dist/$TARGET/app.elf"
+            cp bin/app.hex "dist/$TARGET/app.hex"
+            cp bin/app.apdu "dist/$TARGET/app.apdu"
+            cp bin/app.sha256 "dist/$TARGET/app.sha256"
+            cp debug/app.map "dist/$TARGET/app.map" 2>/dev/null || true
+            echo ""
+            print_status "Artifacts saved to dist/$TARGET/"
+            echo ""
         else
-            echo ""
-            print_status "Size within limit ✓"
+            print_error "Build failed - hex file not found"
+            exit 1
         fi
-        echo ""
     else
         echo ""
         print_error "Build failed!"
-        echo ""
-        echo "═══════════════════════════════════════════════════════"
-        echo ""
-        echo "The Ledger BOLOS SDK has API compatibility issues."
-        echo ""
-        echo "═══════════════════════════════════════════════════════"
-        echo ""
-        echo "RECOMMENDED SOLUTION: Use web-based integration"
-        echo ""
-        echo "  The web-based Ledger integration works WITHOUT"
-        echo "  needing to compile and install a native app."
-        echo ""
-        echo "═══════════════════════════════════════════════════════"
-        echo ""
-        echo "QUICK START (Web-Based):"
-        echo ""
-        echo "  1. Run: $APP_DIR/scripts/start-wallet.sh"
-        echo ""
-        echo "  2. Open: http://127.0.0.1:8420"
-        echo ""
-        echo "  3. Click: 'Connect Ledger'"
-        echo ""
-        echo "═══════════════════════════════════════════════════════"
-        echo ""
-        echo "Benefits of Web-Based Integration:"
-        echo "  ✓ No compilation required"
-        echo "  ✓ No SDK dependencies"
-        echo "  ✓ Same security guarantees"
-        echo "  ✓ Works with any Ed25519 Ledger app"
-        echo "  ✓ Automatic updates"
-        echo ""
-        echo "═══════════════════════════════════════════════════════"
-        echo ""
         exit 1
     fi
 }
@@ -221,13 +178,22 @@ build_app() {
 # Entry Point
 # =============================================================================
 
-check_docker
-check_target
+# Validate target
+case "$TARGET" in
+    nanox|nano-x|nanos2|nanosp)
+        ;;
+    *)
+        print_error "Invalid target: $TARGET"
+        echo "Valid targets: nanox, nanos2 (nanosp)"
+        exit 1
+        ;;
+esac
+
 build_app
 
 echo -e "${GREEN}Build completed successfully!${NC}"
 echo ""
 echo "Next steps:"
-echo "  1. Connect your Ledger $(get_device_name)"
-echo "  2. Run: ./scripts/install.sh $TARGET"
+echo "  1. Test with Speculos: ./scripts/setup-build-test.sh test"
+echo "  2. Or load to device:  make load TARGET=$TARGET"
 echo ""

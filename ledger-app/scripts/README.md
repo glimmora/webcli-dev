@@ -1,357 +1,116 @@
 # Octra Wallet Ledger App - Build Scripts
 
-Automated build and installation scripts for the Octra Wallet Ledger application.
+Automated build, test, and deployment scripts for the Octra Wallet Ledger application.
 
 ## Quick Start
 
-### Linux/macOS
+### Full Setup (installs everything + builds + tests)
 
-#### Build for Nano X
 ```bash
-./scripts/build.sh nanox
+./scripts/setup-build-test.sh all
 ```
 
-#### Build and Install in One Step
+### Individual Steps
+
 ```bash
-./scripts/build-and-install.sh nanox
+./scripts/setup-build-test.sh setup   # Install prerequisites only
+./scripts/setup-build-test.sh build   # Build for all targets only
+./scripts/setup-build-test.sh test    # Run Speculos tests only
 ```
 
-### Windows
+### Build for Single Target
 
-#### Build for Nano X
-```cmd
-scripts\build.bat nanox
-```
-
-#### Build and Install in One Step
-```cmd
-scripts\build-and-install.bat nanox
+```bash
+./scripts/build.sh nanox     # Nano X
+./scripts/build.sh nanos2    # Nano S Plus
 ```
 
 ## Available Scripts
 
-### Linux/macOS
-
 | Script | Description |
 |--------|-------------|
-| `build.sh` | Build the app for specified target |
-| `install.sh` | Install built app to Ledger device |
+| `setup-build-test.sh` | Full autonomous setup: prerequisites, build, test |
+| `build.sh` | Build app for a single target |
+| `install.sh` | Install built app to physical Ledger device |
 | `build-and-install.sh` | Build and install in one step |
-| `setup-udev.sh` | Setup Linux USB permissions & auto-install dependencies |
-| `start-wallet.sh` | Start the web wallet |
+| `test-integration.sh` | Integration test suite (directories, files, Speculos) |
+| `start-wallet.sh` | Start the web wallet with Ledger support |
+| `setup-udev.sh` | Setup Linux USB permissions for Ledger access |
 | `cleanup.sh` | Remove build artifacts |
 
-### Windows
+### Windows Scripts
 
 | Script | Description |
 |--------|-------------|
 | `build.bat` | Build the app for specified target |
 | `install.bat` | Install built app to Ledger device |
 | `build-and-install.bat` | Build and install in one step |
-| `setup-udev.bat` | Auto-install all dependencies (Docker, Python, ledgerblue) |
+| `setup-udev.bat` | Auto-install dependencies |
 | `start-wallet.bat` | Start the web wallet |
 
 ## Build Targets
 
-| Target | Device | Size Limit |
-|--------|--------|------------|
-| `nanos` | Nano S | 180 KB |
-| `nanos2` | Nano S Plus | 180 KB |
-| `nanox` | Nano X | 400 KB |
-| `stax` | Stax | 1.5 MB |
+| Target | Device | Speculos | Size Limit |
+|--------|--------|----------|------------|
+| `nanox` | Ledger Nano X | Yes | 400 KB |
+| `nanos2` | Ledger Nano S Plus | Yes | 180 KB |
 
-## Prerequisites
+**Note:** The original Nano S (`nanos`) is not supported by recent Speculos versions.
 
-### Required for All Platforms
-- **Docker** - For containerized build
-  - Linux: Docker Engine
-  - Windows: Docker Desktop
-  - macOS: Docker Desktop
+## Prerequisites (auto-installed)
 
-### Auto-Installed by Setup Scripts
-- **Python 3** - For installation
-- **ledgerblue** - Python package for Ledger communication
-- **Build tools** - Git, curl, wget
-
-### Linux Only
-- **udev rules** - For USB access without root (configured by setup-udev.sh)
-
-### Windows Only
-- **Administrator privileges** - For driver installation
-- **WinUSB drivers** - Auto-configured by setup-udev.bat
-
-## Installation
-
-### Linux/macOS
-
-#### Step 1: Setup Dependencies
-```bash
-cd /path/to/ledger-app
-sudo ./scripts/setup-udev.sh
-```
-
-**Important:** Log out and log back in for group changes to take effect.
-
-#### Step 2: Build
-```bash
-# Build for Nano X
-./scripts/build.sh nanox
-
-# Build for Nano S (default)
-./scripts/build.sh
-```
-
-#### Step 3: Install
-```bash
-# Connect Ledger, unlock with PIN
-./scripts/install.sh nanox
-```
-
-### Windows
-
-#### Step 1: Setup Dependencies
-Run as Administrator:
-```cmd
-scripts\setup-udev.bat
-```
-
-#### Step 2: Build
-```cmd
-REM Build for Nano X
-scripts\build.bat nanox
-
-REM Build for Nano S (default)
-scripts\build.bat
-```
-
-#### Step 3: Install
-```cmd
-REM Connect Ledger, unlock with PIN
-scripts\install.bat nanox
-```
-
-## Usage Examples
-
-### Linux/macOS
-
-#### Complete Build & Install
-```bash
-./scripts/build-and-install.sh nanox
-```
-
-#### Start Web Wallet
-```bash
-./scripts/start-wallet.sh
-```
-
-#### Cleanup Build Artifacts
-```bash
-./scripts/cleanup.sh
-```
-
-### Windows
-
-#### Complete Build & Install
-```cmd
-scripts\build-and-install.bat nanox
-```
-
-#### Start Web Wallet
-```cmd
-scripts\start-wallet.bat
-```
-
-## Troubleshooting
-
-### Docker Issues
-
-#### "Docker daemon is not running"
-**Linux:**
-```bash
-sudo systemctl start docker
-sudo systemctl enable docker
-```
-
-**Windows:**
-- Start Docker Desktop
-- Wait for it to fully initialize (whale icon stops animating)
-
-#### "permission denied while trying to connect to the docker API"
-**Linux:**
-```bash
-# Add user to docker group
-sudo usermod -aG docker $USER
-
-# Then log out and log back in
-# Or temporarily use:
-sudo docker ps
-```
-
-### Device Not Detected
-
-#### Linux
-```bash
-# Re-run setup with sudo
-sudo ./scripts/setup-udev.sh
-
-# Log out and log back in
-# Or reload udev rules:
-sudo udevadm control --reload-rules
-sudo udevadm trigger
-```
-
-#### Windows
-- Run `scripts\setup-udev.bat` as Administrator
-- Disconnect and reconnect Ledger
-- Close Ledger Live if running
-
-### "ledgerblue not found"
-**Linux:**
-```bash
-pip3 install --break-system-packages ledgerblue
-```
-
-**Windows:**
-```cmd
-pip install ledgerblue
-```
-
-### Build Failed
-The Ledger SDK has frequent API changes. Alternative:
-
-#### Use Web-Based Integration (Recommended)
-```bash
-# Linux/macOS
-./scripts/start-wallet.sh
-
-# Windows
-scripts\start-wallet.bat
-
-# Open browser: http://127.0.0.1:8420
-# Click "Connect Ledger"
-```
-
-**Benefits:**
-- No compilation required
-- No SDK dependencies
-- Same security guarantees
-- Works with any Ed25519 Ledger app
+| Component | Purpose |
+|-----------|---------|
+| ARM GCC 13.3.1 | Cross-compiler for ARM Cortex-M |
+| Ledger Secure SDK | Build system and headers |
+| Clang | Required by SDK build system |
+| Speculos | Ledger device emulator |
+| ledgerblue | For loading apps to physical devices |
+| qemu-arm-static | ARM emulation for Speculos |
 
 ## Build Output
 
 After successful build:
 ```
-build/
-└── nanox/
-    ├── app.hex      # Application binary
-    ├── app.elf      # ELF format binary
-    └── app.map      # Memory map
+dist/
+├── nanox/
+│   ├── app.elf      # ELF binary (for Speculos)
+│   ├── app.hex      # Hex binary (for device loading)
+│   ├── app.apdu     # APDU format
+│   ├── app.sha256   # Checksum
+│   └── app.map      # Memory map
+└── nanos2/
+    ├── app.elf
+    ├── app.hex
+    ├── app.apdu
+    ├── app.sha256
+    └── app.map
 ```
 
-## Installation Verification
+## Troubleshooting
 
-After successful install:
-```
-✓ Octra App Installed Successfully!
-
-Device: Ledger Nano X
-App:    Octra v1.0.0
-
-On your Ledger:
-  1. Press the right button to navigate apps
-  2. Find "Octra" in the list
-  3. Press both buttons to open
-```
-
-## Script Details
-
-### build.sh / build.bat
-- Checks Docker availability
-- Pulls Ledger builder image
-- Builds with correct SDK path
-- Validates app size against limits
-
-### install.sh / install.bat
-- Checks prerequisites (Python, ledgerblue)
-- Detects connected device
-- Removes existing app
-- Installs new app
-- Verifies installation
-
-### build-and-install.sh / build-and-install.bat
-- Combines build and install scripts
-- Single command deployment
-- Error handling between steps
-
-### setup-udev.sh (Linux)
-- Installs Docker if not present
-- Installs Python 3 and pip
-- Installs ledgerblue Python package
-- Creates udev rules for USB access
-- Adds user to docker and plugdev groups
-
-### setup-udev.bat (Windows)
-- Installs Python 3 if not present
-- Installs ledgerblue Python package
-- Checks Docker Desktop installation
-- Configures USB drivers
-- Checks for Ledger Live conflicts
-
-## Advanced Usage
-
-### Custom SDK Path
+### Build fails
 ```bash
-export BOLOS_SDK=/custom/path/to/sdk
-./scripts/build.sh nanox
+# Reinstall all dependencies
+./scripts/setup-build-test.sh setup
 ```
 
-### Verbose Build
+### Speculos won't start
 ```bash
-VERBOSE=1 ./scripts/build.sh nanox
+# Verify installation
+python3 -c "import speculos; print('OK')"
+qemu-arm-static --version
 ```
 
-### Force Rebuild
+### Device not detected
 ```bash
-rm -rf build/
-./scripts/build.sh nanox
+# Linux: set up udev rules
+sudo ./scripts/setup-udev.sh
+# Log out and back in
 ```
-
-## Web-Based Alternative (Recommended)
-
-The web-based integration works without installing a native app:
-
-```bash
-# Linux/macOS
-cd /path/to/webcli
-./octra_wallet 8420
-
-# Windows
-cd \path\to\webcli
-octra_wallet.exe 8420
-
-# Open browser: http://127.0.0.1:8420
-# Click "Connect Ledger"
-```
-
-**Benefits:**
-- No compilation required
-- No SDK dependencies
-- Same security guarantees
-- Works with any Ed25519 Ledger app
-- Automatic updates
-
-## Support
-
-For issues:
-1. Check device connection
-2. Verify Docker is running
-3. Run setup script for your platform
-4. Use web-based integration as alternative
 
 ## License
 
 GNU General Public License v2.0
-
-## Copyright
 
 Copyright 2025-2026 Octra Labs

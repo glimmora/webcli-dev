@@ -1,161 +1,107 @@
-# Octra Wallet - Ledger Nano S/X Integration
+# Octra Wallet - Ledger Integration
 
-Complete hardware wallet integration for Octra blockchain with Ledger Nano S and Nano X support.
+Complete hardware wallet integration for Octra blockchain with Ledger Nano S Plus and Nano X support.
+
+## Supported Devices
+
+| Device | Target | Speculos | Size Limit |
+|--------|--------|----------|------------|
+| Ledger Nano X | `nanox` | Yes | 400 KB |
+| Ledger Nano S Plus | `nanos2` | Yes | 180 KB |
+
+**Note:** The original Ledger Nano S (target `nanos`) is not supported by recent versions of Speculos. Use a real device or the Nano S Plus emulator.
 
 ## Project Structure
 
 ```
-webcli/
-├── ledger-app/              # Ledger BOLOS application (source code)
-│   ├── src/
-│   │   └── main.c           # Complete app implementation
-│   └── Makefile             # Build configuration
-│
-├── static/
-│   ├── ledger.js            # WebUSB/WebHID JavaScript client ✅
-│   ├── index.html           # Web UI with Ledger support ✅
-│   ├── wallet.js            # Wallet logic with Ledger ✅
-│   └── style.css            # Styles with Ledger modal ✅
-│
-├── lib/
-│   ├── ledger_bridge.hpp    # C++ backend bridge ✅
-│   └── ledger_bridge.cpp    # Backend implementation ✅
-│
-└── octra_wallet             # Built binary (1.4MB) ✅
+ledger-app/
+├── src/
+│   └── main.c              # Complete app implementation (single-file)
+├── icons/
+│   └── octra.gif           # App icon
+├── dist/                   # Build outputs (created by build)
+│   ├── nanox/              # Nano X build artifacts
+│   │   ├── app.elf         # ELF for Speculos
+│   │   ├── app.hex         # Hex for device loading
+│   │   └── app.map         # Memory map
+│   └── nanos2/             # Nano S Plus build artifacts
+│       ├── app.elf
+│       ├── app.hex
+│       └── app.map
+├── scripts/                # Build and deployment scripts
+│   ├── setup-build-test.sh # Full setup + build + test
+│   ├── build.sh            # Build for single target
+│   ├── install.sh          # Install to physical device
+│   ├── test-integration.sh # Integration test suite
+│   └── start-wallet.sh     # Start web wallet
+└── Makefile                # Build configuration
 ```
 
-## ✅ Completed Components
+## Quick Start
 
-### 1. WebUSB/WebHID Integration (Browser-Based)
-
-**File:** `static/ledger.js`
-
-Features:
-- WebUSB support (Chrome, Edge)
-- WebHID support (Firefox, Chrome)  
-- Automatic device detection
-- APDU command/response handling
-- Transaction signing
-- Message signing
-- Address derivation
-
-Usage:
-```javascript
-// Connect to Ledger
-const ledger = new window.LedgerWallet();
-const { address, publicKey } = await ledger.connect();
-
-// Sign transaction
-const signature = await ledger.signTransaction({
-  to: 'oct...',
-  amount: 1000000,
-  nonce: 1,
-  ou: 100,
-  timestamp: Date.now() / 1000
-});
-```
-
-### 2. Web Interface
-
-**Files:** `static/index.html`, `static/wallet.js`, `static/style.css`
-
-Features:
-- "Connect Ledger" button on welcome screen
-- Ledger connection modal with instructions
-- Automatic address import after connection
-- Ledger badge in header
-- Transaction signing via Ledger
-- Fallback to software wallet when Ledger not connected
-
-### 3. Backend Bridge
-
-**Files:** `lib/ledger_bridge.hpp`, `lib/ledger_bridge.cpp`
-
-Features:
-- C++ interface for Ledger communication
-- HID device enumeration (Windows, Linux, macOS)
-- APDU command handling
-- Transaction signing
-- Platform-specific implementations
-
-Usage:
-```cpp
-octra::LedgerBridge bridge;
-if (bridge.init()) {
-    auto devices = bridge.scan_devices();
-    if (bridge.connect(devices[0].device_id)) {
-        auto pubkey = bridge.get_public_key(octra::default_derivation_path());
-        auto sig = bridge.sign_transaction(tx_data);
-    }
-}
-```
-
-### 4. Built Binary
-
-**File:** `octra_wallet` (1.4MB)
-
-The webcli binary includes:
-- Full Octra wallet functionality
-- Ledger bridge integration
-- WebUSB/WebHID server support
-- Running on `http://127.0.0.1:8420`
-
-## ⚠️ Ledger BOLOS App Build
-
-The Ledger app source code (`ledger-app/src/main.c`) is complete but requires the official Ledger build environment.
-
-### Build Requirements
-
-1. **Ledger BOLOS SDK** - Download from Ledger
-2. **ARM GCC** - Cross-compiler for ARM
-3. **ledgerblue** - Python package for loading apps
-
-### Build Instructions
+### Full Automated Setup (installs everything)
 
 ```bash
-cd /root/webcli/ledger-app
-
-# Using Docker (recommended)
-docker run --rm \
-  -e BOLOS_SDK=/opt/nanos-secure-sdk \
-  -v $(pwd):/app -w /app \
-  ghcr.io/ledgerhq/ledger-app-builder/ledger-app-builder-lite:latest \
-  make
-
-
-# Or build locally with SDK
-export BOLOS_SDK=/path/to/ledger-nanos-secure-sdk
-make
+cd ledger-app
+./scripts/setup-build-test.sh all
 ```
 
-### Load to Device
+This installs ARM GCC, clones the Ledger SDK, builds for both targets, and runs Speculos tests.
+
+### Build Only
 
 ```bash
-# Nano S
-python3 -m ledgerblue.loadApp \
-  --targetId 0x31100004 \
-  --fileName build/nanos/app.hex \
-  --appFlags 0x00 \
-  --appName "Octra" \
-  --appVersion "1.0.0" \
-  --appPath "/" \
-  --tlv
-
-# Nano X  
-python3 -m ledgerblue.loadApp \
-  --targetId 0x33000004 \
-  --fileName build/nanox/app.hex \
-  --appName "Octra" \
-  --appVersion "1.0.0" \
-  --tlv
+./scripts/build.sh nanox     # Build for Nano X
+./scripts/build.sh nanos2    # Build for Nano S Plus
 ```
 
-### Alternative: Use Existing Ledger App
+### Test with Speculos
 
-If you cannot build the custom app, the web integration works with any Ed25519-based Ledger app that supports:
-- BIP32 derivation
-- APDU commands for public key retrieval
-- Transaction signing
+```bash
+./scripts/setup-build-test.sh test
+```
+
+### Start Web Wallet
+
+```bash
+./scripts/start-wallet.sh
+# Open http://127.0.0.1:8420
+```
+
+## Build System
+
+### Prerequisites (auto-installed by setup-build-test.sh)
+
+- **ARM GCC 13.3.1** - Cross-compiler for ARM Cortex-M
+- **Ledger Secure SDK** - From https://github.com/LedgerHQ/ledger-secure-sdk
+- **Clang** - Required by the SDK build system
+- **Speculos** - Ledger device emulator (`pip install speculos`)
+- **ledgerblue** - For device loading (`pip install ledgerblue`)
+
+### Manual Build
+
+```bash
+export PATH="$HOME/tools/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi/bin:$PATH"
+export BOLOS_SDK=/path/to/ledger-secure-sdk
+export TARGET=nanox
+
+make clean
+make API_LEVEL=25
+```
+
+Output: `bin/app.elf`, `bin/app.hex`
+
+### Makefile Targets
+
+| Target | Description |
+|--------|-------------|
+| `make TARGET=nanox` | Build for Nano X |
+| `make TARGET=nanos2` | Build for Nano S Plus |
+| `make build-all` | Build for all targets, save to `dist/` |
+| `make load` | Load app to connected device |
+| `make delete` | Delete app from device |
+| `make clean` | Clean build artifacts |
+| `make distclean` | Clean everything including `dist/` |
 
 ## APDU Protocol
 
@@ -163,10 +109,20 @@ If you cannot build the custom app, the web integration works with any Ed25519-b
 
 | INS | Name | Description |
 |-----|------|-------------|
-| 0x00 | GET_VERSION | Get app version |
-| 0x01 | GET_PUBLIC_KEY | Derive public key |
-| 0x02 | SIGN_TRANSACTION | Sign transaction |
+| 0x00 | GET_VERSION | Get app version and device type |
+| 0x01 | GET_PUBLIC_KEY | Derive public key and address |
+| 0x02 | SIGN_TRANSACTION | Sign transaction data |
 | 0x03 | DERIVE_ADDRESS | Derive address only |
+| 0x04 | SIGN_MESSAGE | Sign arbitrary message |
+
+### GET_VERSION Response
+
+```
+[0] Major version
+[1] Minor version
+[2] Patch version
+[3] Device type (1=Nano S, 2=Nano X, 3=Nano S Plus, 4=Stax)
+```
 
 ### GET_PUBLIC_KEY Request
 
@@ -180,15 +136,15 @@ Response:
 [0] Public key length (32)
 [1..32] Public key bytes
 [33] Address length (47)
-[34..] Address string
+[34..80] Address string ("oct" + base58)
 ```
 
 ### SIGN_TRANSACTION Request
 
 ```
-[0] Transaction type
-[1..47] From address
-[48..94] To address
+[0]  Transaction type
+[1..47] From address (47 bytes ASCII)
+[48..94] To address (47 bytes ASCII)
 [95..102] Amount (uint64 BE)
 [103..106] Nonce (uint32 BE)
 [107..110] OU/Fee (uint32 BE)
@@ -205,83 +161,59 @@ Octra uses BIP44 with SLIP-44 coin type 3156 (0xC54):
 m/44'/3156'/0'/0/0
 ```
 
-Components:
 - `44'` - BIP44 purpose
 - `3156'` - Octra coin type
 - `0'` - Account index
 - `0` - Change (external)
 - `0` - Address index
 
+## Speculos Testing
+
+Speculos emulates Ledger devices using QEMU. The app is tested with:
+
+```bash
+speculos --display headless -m nanox -a 25 --apdu-port 9999 dist/nanox/app.elf
+```
+
+**Known Speculos limitation:** Non-hardened Ed25519 derivation (components 4 and 5 in `m/44'/3156'/0'/0/0`) fails in Speculos but works on real hardware. Tests use all-hardened paths to verify crypto operations.
+
+## Webcli Integration
+
+The APDU protocol is fully compatible with the `octra_wallet` webcli:
+
+- `static/ledger.js` - WebUSB/WebHID browser client
+- `lib/ledger_bridge.cpp` - C++ backend bridge
+- Both use CLA=0xE0 and the same INS codes
+
+### Connection Flow
+
+1. Start webcli: `./octra_wallet 8420`
+2. Open `http://127.0.0.1:8420`
+3. Click "Connect Ledger"
+4. WebUSB/WebHID connects to the Ledger device
+5. GET_PUBLIC_KEY derives address on-device
+6. Transactions are signed on-device via SIGN_TRANSACTION
+
 ## Browser Compatibility
 
 | Browser | WebUSB | WebHID | Status |
 |---------|--------|--------|--------|
-| Chrome | ✅ | ✅ | Full support |
-| Edge | ✅ | ✅ | Full support |
-| Firefox | ❌ | ✅ | WebHID only |
-| Safari | ❌ | ❌ | Not supported |
+| Chrome | Yes | Yes | Full support |
+| Edge | Yes | Yes | Full support |
+| Firefox | No | Yes | WebHID only |
+| Safari | No | No | Not supported |
 
-## Usage Flow
+## Security
 
-1. **Start the wallet:**
-   ```bash
-   cd /root/webcli
-   ./octra_wallet 8420
-   ```
-
-2. **Open browser:** Navigate to `http://127.0.0.1:8420`
-
-3. **Connect Ledger:**
-   - Click "Connect Ledger"
-   - Follow on-screen instructions
-   - Confirm on device
-
-4. **Send transaction:**
-   - Navigate to "Send" tab
-   - Enter recipient and amount
-   - Click "Send"
-   - Verify on Ledger device
-   - Confirm with both buttons
-
-## Security Features
-
-- ✅ Private keys never leave Ledger device
-- ✅ All transactions require physical confirmation
-- ✅ Address verification on device screen
-- ✅ Secure element cryptography (Ed25519)
-- ✅ PIN protection on device
-- ✅ BIP32/BIP44 HD derivation
-
-## Size Limits
-
-| Device | Limit | Status |
-|--------|-------|--------|
-| Nano S | 180KB | ✅ Source optimized |
-| Nano X | 400KB | ✅ Source optimized |
-| Stax | 1.5MB | ✅ Source optimized |
-
-## Troubleshooting
-
-### "Device not found"
-- Ensure Ledger is unlocked
-- Open Octra app on Ledger
-- Try different USB port
-- Use direct connection (no hub)
-
-### "WebUSB not supported"
-- Use Chrome or Edge
-- Ensure HTTPS or localhost
-- Check browser settings
-
-### Build errors
-- Use Docker build environment
-- Ensure BOLOS_SDK path is correct
-- Check clang is available
+- Private keys never leave the Ledger device
+- All transactions require physical button confirmation
+- Address verification on device screen
+- Secure element cryptography (Ed25519)
+- PIN protection on device
+- BIP32/BIP44 HD derivation
 
 ## License
 
 GNU General Public License v2.0
-
-## Copyright
 
 Copyright 2025-2026 Octra Labs

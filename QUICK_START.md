@@ -1,12 +1,11 @@
 # Octra Wallet - Quick Start Guide
 
-## Option 1: Web-Based Ledger Integration (Recommended)
+## Option 1: Web-Based Integration (Recommended)
 
 No native app compilation needed. Works with any Ed25519 Ledger app.
 
 ### Step 1: Start the Wallet
 ```bash
-cd /root/webcli
 ./octra_wallet 8420
 ```
 
@@ -17,21 +16,13 @@ Navigate to `http://127.0.0.1:8420`
 1. Click "Connect Ledger" button
 2. Connect your Ledger via USB
 3. Unlock with PIN
-4. Open any Ed25519 app on Ledger (e.g., Solana, Cardano)
-5. Click "Connect" in browser
-6. Confirm address on device
+4. Click "Connect" in browser
+5. Confirm address on device
 
 ### Step 4: Use Wallet
 - View balance and transactions
 - Send transactions (confirmed on Ledger)
 - Sign messages
-
-**Benefits:**
-- ✅ No compilation required
-- ✅ No SDK dependencies
-- ✅ Same security guarantees
-- ✅ Works with any Ed25519 Ledger app
-- ✅ Automatic updates
 
 ---
 
@@ -40,29 +31,30 @@ Navigate to `http://127.0.0.1:8420`
 Build and install a custom Octra app on your Ledger device.
 
 ### Prerequisites
-- Docker installed and running
-- Python 3 with ledgerblue package
+- ARM GCC cross-compiler
+- Ledger Secure SDK
+- Clang
+- Python 3 with `speculos` and `ledgerblue`
 
-### Step 1: Build the App
+All prerequisites are installed automatically by the setup script.
+
+### Step 1: Setup and Build
 ```bash
-cd /root/webcli/ledger-app
-./scripts/build.sh nanos
+cd ledger-app
+./scripts/setup-build-test.sh all
 ```
 
-### Step 2: Install to Device
-```bash
-./scripts/install.sh nanos
-```
+This installs prerequisites, builds for Nano X and Nano S Plus, and runs Speculos tests.
 
-### Step 3: Start Wallet
+### Step 2: Start Wallet
 ```bash
 ./scripts/start-wallet.sh
 ```
 
-### Step 4: Open Browser
+### Step 3: Open Browser
 Navigate to `http://127.0.0.1:8420`
 
-### Step 5: Connect Ledger
+### Step 4: Connect Ledger
 1. Open the Octra app on your Ledger
 2. Click "Connect Ledger" in browser
 3. Confirm address on device
@@ -71,23 +63,30 @@ Navigate to `http://127.0.0.1:8420`
 
 ## Supported Devices
 
-| Device | Build Command | Size Limit |
-|--------|--------------|------------|
-| Nano S | `./scripts/build.sh nanos` | 180 KB |
-| Nano S Plus | `./scripts/build.sh nanos2` | 180 KB |
-| Nano X | `./scripts/build.sh nanox` | 400 KB |
-| Stax | `./scripts/build.sh stax` | 1.5 MB |
+| Device | Target | Build Command |
+|--------|--------|---------------|
+| Nano X | `nanox` | `./scripts/build.sh nanox` |
+| Nano S Plus | `nanos2` | `./scripts/build.sh nanos2` |
+
+**Note:** The original Ledger Nano S is not supported by recent Speculos versions.
+
+---
+
+## Testing with Speculos
+
+```bash
+cd ledger-app
+
+# Test both devices
+./scripts/setup-build-test.sh test
+
+# Manual test (Nano X)
+speculos --display headless -m nanox -a 25 --apdu-port 9999 dist/nanox/app.elf
+```
 
 ---
 
 ## Troubleshooting
-
-### "Docker not found"
-```bash
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER
-# Log out and back in
-```
 
 ### "ledgerblue not found"
 ```bash
@@ -101,27 +100,10 @@ pip3 install --break-system-packages ledgerblue
 4. On Linux: `sudo ./scripts/setup-udev.sh`
 
 ### "Build failed"
-Use web-based integration instead (Option 1 above).
-
----
-
-## Integration Test
-
-Run comprehensive tests to verify everything works:
 ```bash
-cd /root/webcli/ledger-app
-./scripts/test-integration.sh
+# Reinstall all dependencies
+./scripts/setup-build-test.sh setup
 ```
-
----
-
-## Security
-
-- Private keys never leave Ledger device
-- All transactions require physical confirmation
-- Address verification on device screen
-- Secure element cryptography (Ed25519)
-- PIN protection on device
 
 ---
 
